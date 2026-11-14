@@ -131,6 +131,12 @@ function findNum(o, keyRe, path=""){
   return null;
 }
 
+function leaves(o,path="",out=[]){
+  if(o==null) return out;
+  if(typeof o!=="object"){ if(!isNaN(parseFloat(o))) out.push(path+" = "+o); return out; }
+  for(const [k,v] of Object.entries(o)) leaves(v,path+"/"+k,out);
+  return out;
+}
 async function simulate(coin, algorithm, hs){
   const r = await fetch(API+"/simulator",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({mode:"advanced",coin,algorithm,hashrate_hs:String(hs),scenario_set:"default",referral_discount:false})});
@@ -163,11 +169,16 @@ async function calculate(){
     const sims = await pool(coins, 6, async c=>{ const r = await simulate(c.symbol,algorithm,hs).catch(e=>({err:String(e)})); setStatus(`Checked ${++done} of ${coins.length} coins…`); return r; });
     const ok = sims.filter(s=>!s.err);
     diag.algorithm=algorithm; diag.hashrate_hs=hs;
-    diag.firstSuccess = ok[0]?.raw ?? null;
+    diag.firstSuccess = ok[0]?.raw ?? null; diag.allNumbersInFirstResponse = ok[0] ? leaves(ok[0].raw) : null;
     diag.firstError = sims.find(s=>s.err)?.err ?? null;
     diag.okCount = ok.length; diag.fieldUsedForCoinsPerDay = ok[0]?.coinsPath ?? 'none found'; diag.firstValueRead = ok[0]?.coinsDay ?? null; showDiag();
     results = coins.map((c,i)=>({symbol:c.symbol,...sims[i]})).filter(r=>!r.err);
     if(!results.length) return setStatus("No payout coin accepted this algorithm. Check the name (see Diagnostics for the error).", true);
+    if(results.every(r=>r.coinsDay==null && r.usdDay==null)){
+      $("rows").innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted)">Coins responded, but no daily reward field was recognised.</td></tr>';
+      $("raw").parentElement.open=true;
+      return setStatus("unMineable answered for "+results.length+" coins, but I could not find the daily reward. Copy the Diagnostics below and send it to me.", true);
+    }
     prices = await loadPrices(results.map(r=>r.symbol));
     render();
     setStatus(`Updated ${new Date().toLocaleTimeString()} · ${results.length} coins`);
