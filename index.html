@@ -50,7 +50,7 @@ pre{background:var(--surface);border:1px solid var(--line);border-radius:6px;pad
     </span>
   </label>
   <label>Algorithm
-    <input id="algo" list="algos" value="randomx" autocomplete="off" spellcheck="false">
+    <input id="algo" list="algos" value="pearlpow" autocomplete="off" spellcheck="false">
     <datalist id="algos"></datalist>
   </label>
   <button id="go">Calculate</button>
@@ -66,14 +66,14 @@ pre{background:var(--surface);border:1px solid var(--line);border-radius:6px;pad
 </div>
 
 <details><summary>Diagnostics (copy this if something looks wrong)</summary><pre id="raw">–</pre></details>
-<p class="note">Estimates come from unMineable's public simulator, prices from Binance and CoinGecko (type a price in a row to override it). Real earnings vary with network difficulty and exchange slippage. Open this file by double-clicking it on your computer.</p>
+<p class="note">Figures come from unMineable's public simulator (1-day, current prices, 1% fee included; coins are auto-converted into the payout coin). The price shown is the one the simulator used; type your own price in a row to override it. Real earnings vary with network difficulty and exchange slippage. Open this file by double-clicking it on your computer.</p>
 </main>
 
 <script>
 const $ = id => document.getElementById(id);
 const API = "https://api.unmineable.dev/v1";
 let coins = [], results = [], prices = {}, overrides = {}, diag = {};
-const COMMON_ALGOS = ["randomx","kawpow","etchash","ethash","autolykos","octopus","ghostrider","verthash","pearl"];
+const COMMON_ALGOS = ["pearlpow","randomx","kawpow","etchash","ethash","autolykos","octopus","ghostrider","verthash","pearl"];
 const setStatus = (m,e)=>{ const s=$("status"); s.textContent=m; s.className=e?"err":""; };
 const fmt = (n,d=4)=>(n==null||!isFinite(n))?"–":Number(n).toLocaleString(undefined,{maximumFractionDigits:d});
 const showDiag = ()=>{ $("raw").textContent = JSON.stringify(diag,null,1).slice(0,6000); };
@@ -143,11 +143,13 @@ async function simulate(coin, algorithm, hs){
   const txt = await r.text(); let j; try{ j=JSON.parse(txt);}catch(e){ return {err:"HTTP "+r.status+": "+txt.slice(0,120)}; }
   if(!r.ok || j.error || j.success===false) return {err:(j.error&&(j.error.message||j.error))||j.message||("HTTP "+r.status), raw:j};
   const d = j.data ?? j;
-  const cd = findNum(d,/^(per_?day|day|daily|coins_?per_?day|reward_?day|amount_?day)$/i);
-  const ud = findNum(d,/^(usd_?day|fiat_?day|daily_?usd)$/i);
+  const sc = d?.algorithms?.[0]?.windows?.["1d"]?.scenarios?.spot_now;
+  const ac = sc?.auto_convert;
   return {
-    coinsDay: cd?.v, coinsPath: cd?.path,
-    usdDay: ud?.v,
+    coinsDay: ac ? parseFloat(ac.payout_coin) : null,
+    usdDay: ac ? parseFloat(ac.usdt) : null,
+    minedDay: sc ? parseFloat(sc.net_algorithm_coin_mined) : null,
+    coinsPath: "data/algorithms[0]/windows/1d/scenarios/spot_now/auto_convert",
     raw:j
   };
 }
@@ -179,7 +181,6 @@ async function calculate(){
       $("raw").parentElement.open=true;
       return setStatus("unMineable answered for "+results.length+" coins, but I could not find the daily reward. Copy the Diagnostics below and send it to me.", true);
     }
-    prices = await loadPrices(results.map(r=>r.symbol));
     render();
     setStatus(`Updated ${new Date().toLocaleTimeString()} · ${results.length} coins`);
   }catch(e){
@@ -189,8 +190,9 @@ async function calculate(){
 
 function render(){
   const rows = results.map(r=>{
-    const price = overrides[r.symbol] ?? prices[r.symbol];
-    const usd = r.usdDay ?? ((r.coinsDay!=null && price!=null) ? r.coinsDay*price : null);
+    const implied = (r.usdDay!=null && r.coinsDay) ? r.usdDay/r.coinsDay : null;
+    const price = overrides[r.symbol] ?? implied;
+    const usd = overrides[r.symbol]!=null && r.coinsDay!=null ? r.coinsDay*overrides[r.symbol] : r.usdDay;
     return {...r,price,usd};
   }).sort((a,b)=>(b.usd??-1)-(a.usd??-1));
   $("rows").innerHTML = rows.map((r,i)=>`<tr class="${i===0&&r.usd!=null?"best":""}">
