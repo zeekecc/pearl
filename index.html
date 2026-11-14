@@ -122,12 +122,12 @@ async function loadPrices(symbols){
 }
 
 // pull a numeric value out of an unknown response shape
-function findNum(o, keyRe){
+function findNum(o, keyRe, path=""){
   if(o==null || typeof o!=="object") return null;
   for(const [k,v] of Object.entries(o)){
-    if(keyRe.test(k) && v!=null && typeof v!=="object" && !isNaN(parseFloat(v))) return parseFloat(v);
+    if(keyRe.test(k) && v!=null && typeof v!=="object" && !isNaN(parseFloat(v))) return {v:parseFloat(v),path:path+"/"+k};
   }
-  for(const v of Object.values(o)){ const f=findNum(v,keyRe); if(f!=null) return f; }
+  for(const [k,v] of Object.entries(o)){ const f=findNum(v,keyRe,path+"/"+k); if(f) return f; }
   return null;
 }
 
@@ -137,9 +137,11 @@ async function simulate(coin, algorithm, hs){
   const txt = await r.text(); let j; try{ j=JSON.parse(txt);}catch(e){ return {err:"HTTP "+r.status+": "+txt.slice(0,120)}; }
   if(!r.ok || j.error || j.success===false) return {err:(j.error&&(j.error.message||j.error))||j.message||("HTTP "+r.status), raw:j};
   const d = j.data ?? j;
+  const cd = findNum(d,/^(per_?day|day|daily|coins_?per_?day|reward_?day|amount_?day)$/i);
+  const ud = findNum(d,/^(usd_?day|fiat_?day|daily_?usd)$/i);
   return {
-    coinsDay: findNum(d,/^(per_?day|day|daily|coins_?per_?day|reward_?day|amount_?day)$/i) ?? findNum(d,/day/i),
-    usdDay: findNum(d,/^(usd|usd_?day|fiat_?day|daily_?usd|value_?usd)$/i),
+    coinsDay: cd?.v, coinsPath: cd?.path,
+    usdDay: ud?.v,
     raw:j
   };
 }
@@ -163,7 +165,7 @@ async function calculate(){
     diag.algorithm=algorithm; diag.hashrate_hs=hs;
     diag.firstSuccess = ok[0]?.raw ?? null;
     diag.firstError = sims.find(s=>s.err)?.err ?? null;
-    diag.okCount = ok.length; showDiag();
+    diag.okCount = ok.length; diag.fieldUsedForCoinsPerDay = ok[0]?.coinsPath ?? 'none found'; diag.firstValueRead = ok[0]?.coinsDay ?? null; showDiag();
     results = coins.map((c,i)=>({symbol:c.symbol,...sims[i]})).filter(r=>!r.err);
     if(!results.length) return setStatus("No payout coin accepted this algorithm. Check the name (see Diagnostics for the error).", true);
     prices = await loadPrices(results.map(r=>r.symbol));
