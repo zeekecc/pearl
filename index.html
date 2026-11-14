@@ -3,55 +3,56 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>unMineable coin calculator</title>
+<title>unMineable payout coin calculator</title>
 <style>
 :root{--bg:#f3f5f4;--surface:#fff;--ink:#14211f;--muted:#5d6b68;--line:#d5dcda;--accent:#0b6b5c;--best:#e3f4ee;--bad:#a4332b}
 @media (prefers-color-scheme:dark){:root{--bg:#0f1716;--surface:#172321;--ink:#e6efed;--muted:#92a39f;--line:#2a3b38;--accent:#4cc9ad;--best:#18352f;--bad:#ff8c82}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:24px 16px}
 main{max-width:980px;margin:0 auto}
-h1{font-size:1.6rem;margin:0 0 4px;letter-spacing:-.01em}
+h1{font-size:1.6rem;margin:0 0 4px}
 p.sub{margin:0 0 20px;color:var(--muted)}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;align-items:end}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;align-items:end}
 label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted)}
 input,select,button{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
 .row{display:flex;gap:6px}.row input{flex:1;min-width:0}
 button{background:var(--accent);color:var(--bg);border-color:var(--accent);cursor:pointer;font-weight:600}
-button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #status{margin:14px 0;color:var(--muted);font-size:.9rem;min-height:1.4em}
 #status.err{color:var(--bad)}
 .wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px}
-table{width:100%;border-collapse:collapse;min-width:640px}
+table{width:100%;border-collapse:collapse;min-width:560px}
 th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
 th:first-child,td:first-child{text-align:left}
 th{font-size:.8rem;color:var(--muted);font-weight:600}
 tr.best td{background:var(--best);font-weight:600}
 tr:last-child td{border-bottom:0}
-td input{width:90px;text-align:right;padding:4px 6px}
+td input{width:100px;text-align:right;padding:4px 6px}
 details{margin-top:16px;color:var(--muted);font-size:.85rem}
-pre{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px;overflow:auto;max-height:240px}
+pre{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px;overflow:auto;max-height:260px;white-space:pre-wrap}
 .note{margin-top:16px;color:var(--muted);font-size:.85rem}
 </style>
 </head>
 <body>
 <main>
-<h1>unMineable coin calculator</h1>
-<p class="sub">Enter your hash rate, pick the algorithm, and compare what each coin earns per day after the exchange fee, using live prices.</p>
+<h1>unMineable payout coin calculator</h1>
+<p class="sub">You mine one algorithm and choose which coin unMineable pays you in. Enter your hash rate to see which payout coin earns the most in USD per day.</p>
 
 <div class="panel">
   <label>Your hash rate
     <span class="row">
       <input id="hr" type="number" min="0" step="any" value="100" inputmode="decimal">
       <select id="unit">
-        <option value="1e-6">H/s</option><option value="1e-3">KH/s</option>
-        <option value="1" selected>MH/s</option><option value="1e3">GH/s</option>
-        <option value="1e6">TH/s</option><option value="1e9">PH/s</option>
+        <option value="1">H/s</option><option value="1e3">KH/s</option>
+        <option value="1e6" selected>MH/s</option><option value="1e9">GH/s</option>
+        <option value="1e12">TH/s</option><option value="1e15">PH/s</option>
       </select>
     </span>
   </label>
-  <label>Algorithm <select id="algo"><option>Loading…</option></select></label>
-  <label>Payout coin <select id="payout"></select></label>
-  <label>Exchange / pool fee (%) <input id="fee" type="number" min="0" step="0.05" value="1"></label>
+  <label>Algorithm
+    <input id="algo" list="algos" value="randomx" autocomplete="off" spellcheck="false">
+    <datalist id="algos"></datalist>
+  </label>
   <button id="go">Calculate</button>
 </div>
 
@@ -59,47 +60,48 @@ pre{background:var(--surface);border:1px solid var(--line);border-radius:6px;pad
 
 <div class="wrap">
 <table>
-  <thead><tr>
-    <th>Mined coin</th><th>Coins / day</th><th>Price (USD)</th>
-    <th>Gross USD / day</th><th>Net USD / day</th><th>Net payout / day</th><th>Net USD / month</th>
-  </tr></thead>
-  <tbody id="rows"><tr><td colspan="7" style="text-align:center;color:var(--muted)">Press Calculate to load coins.</td></tr></tbody>
+  <thead><tr><th>Payout coin</th><th>Coins / day</th><th>Price (USD)</th><th>USD / day</th><th>USD / month</th></tr></thead>
+  <tbody id="rows"><tr><td colspan="5" style="text-align:center;color:var(--muted)">Loading…</td></tr></tbody>
 </table>
 </div>
 
-<details><summary>Raw unMineable response (for checking)</summary><pre id="raw">–</pre></details>
-<p class="note">Prices come from Binance (when the coin is listed there) and CoinGecko. You can type your own price into any row to override it. Estimates only: real earnings change with network difficulty, pool luck and exchange slippage. Open this file from your computer (double-click it); browsers block these live requests when it is hosted inside a chat.</p>
+<details><summary>Diagnostics (copy this if something looks wrong)</summary><pre id="raw">–</pre></details>
+<p class="note">Estimates come from unMineable's public simulator, prices from Binance and CoinGecko (type a price in a row to override it). Real earnings vary with network difficulty and exchange slippage. Open this file by double-clicking it on your computer.</p>
 </main>
 
 <script>
 const $ = id => document.getElementById(id);
-const API = "https://api.unminable.com/v4";
-let coinsByAlgo = {}, prices = {}, overrides = {}, lastResults = [];
+const API = "https://api.unmineable.dev/v1";
+let coins = [], results = [], prices = {}, overrides = {}, diag = {};
+const COMMON_ALGOS = ["randomx","kawpow","etchash","ethash","autolykos","octopus","ghostrider","verthash","pearl"];
+const setStatus = (m,e)=>{ const s=$("status"); s.textContent=m; s.className=e?"err":""; };
+const fmt = (n,d=4)=>(n==null||!isFinite(n))?"–":Number(n).toLocaleString(undefined,{maximumFractionDigits:d});
+const showDiag = ()=>{ $("raw").textContent = JSON.stringify(diag,null,1).slice(0,6000); };
 
-function setStatus(msg, err){ const s=$("status"); s.textContent=msg; s.className=err?"err":""; }
-const fmt = (n,d=4) => (n==null||!isFinite(n)) ? "–" : Number(n).toLocaleString(undefined,{maximumFractionDigits:d});
+function symOf(c){ return (c.symbol||c.coin||c.ticker||c.tag||c.code||"").toString().toUpperCase(); }
+function collectCoins(d){
+  let list = [];
+  if (Array.isArray(d)) list = d;
+  else if (d && typeof d==="object"){
+    const arr = Object.values(d).find(v=>Array.isArray(v) && v.length && typeof v[0]==="object");
+    if (arr) list = arr;
+    else list = Object.entries(d).map(([k,v])=> (v&&typeof v==="object") ? {symbol:k,...v} : {symbol:k});
+  }
+  return list.map(c=> typeof c==="string" ? {symbol:c.toUpperCase()} : {...c,symbol:symOf(c)}).filter(c=>c.symbol);
+}
 
 async function loadCoins(){
   setStatus("Loading unMineable coin list…");
-  const r = await fetch(API+"/coins"); const j = await r.json();
-  $("raw").textContent = JSON.stringify(j,null,1).slice(0,4000);
-  let d = j.data ?? j, list = [];
-  if (Array.isArray(d)) list = d;
-  else if (d && Array.isArray(d.coins)) list = d.coins;
-  else if (d && typeof d === "object") for (const [k,v] of Object.entries(d)) if (Array.isArray(v)) v.forEach(c=>list.push({...c,algo:c.algo||c.algorithm||k}));
-  coinsByAlgo = {};
-  list.forEach(c=>{
-    const sym = c.symbol||c.coin||c.ticker||c.tag; const algo = (c.algo||c.algorithm||"unknown").toString();
-    if(!sym) return; (coinsByAlgo[algo] ||= []).push({symbol:sym.toUpperCase(),name:c.name||sym});
-  });
-  const algos = Object.keys(coinsByAlgo).sort();
-  if(!algos.length) throw new Error("Could not read the coin list from unMineable.");
-  $("algo").innerHTML = algos.map(a=>`<option value="${a}">${a} (${coinsByAlgo[a].length})</option>`).join("");
-  const prl = algos.find(a=>coinsByAlgo[a].some(c=>c.symbol==="PRL"));
-  if(prl) $("algo").value = prl;
-  const all = [...new Set(Object.values(coinsByAlgo).flat().map(c=>c.symbol))].sort();
-  $("payout").innerHTML = all.map(s=>`<option>${s}</option>`).join("");
-  $("payout").value = all.includes("USDT") ? "USDT" : (all.includes("BTC") ? "BTC" : all[0]);
+  const r = await fetch(API+"/meta/coin?compact=true");
+  const txt = await r.text();
+  let j; try{ j = JSON.parse(txt); }catch(e){ diag.metaError = txt.slice(0,300); showDiag(); throw new Error("coin list was not JSON (HTTP "+r.status+")"); }
+  diag.metaSample = JSON.stringify(j).slice(0,1200);
+  coins = collectCoins(j.data ?? j.coins ?? j);
+  if(!coins.length){ showDiag(); throw new Error("no coins found in the response"); }
+  const found = new Set(COMMON_ALGOS);
+  coins.forEach(c=>[].concat(c.algorithms||c.algorithm||c.algo||[]).forEach(a=>{ if(typeof a==="string") found.add(a.toLowerCase()); }));
+  $("algos").innerHTML = [...found].map(a=>`<option value="${a}">`).join("");
+  diag.coinCount = coins.length; showDiag();
   setStatus("");
 }
 
@@ -109,82 +111,89 @@ async function loadPrices(symbols){
     const r = await fetch("https://api.coingecko.com/api/v3/simple/price?vs_currencies=usd&symbols="+symbols.map(s=>s.toLowerCase()).join(","));
     const j = await r.json();
     for(const [k,v] of Object.entries(j)) if(v.usd!=null) out[k.toUpperCase()] = v.usd;
-  }catch(e){}
+  }catch(e){ diag.coingeckoError = String(e); }
   try{
-    const r = await fetch("https://api.binance.com/api/v3/ticker/price");
-    const j = await r.json(); const m = {};
+    const j = await (await fetch("https://api.binance.com/api/v3/ticker/price")).json(); const m = {};
     j.forEach(t=>m[t.symbol]=parseFloat(t.price));
-    symbols.forEach(s=>{ if(m[s+"USDT"]) out[s]=m[s+"USDT"]; else if(["USDT","USDC","DAI"].includes(s)) out[s]=1; });
-  }catch(e){}
+    symbols.forEach(s=>{ if(m[s+"USDT"]) out[s]=m[s+"USDT"]; });
+  }catch(e){ diag.binanceError = String(e); }
   ["USDT","USDC","DAI"].forEach(s=>{ if(symbols.includes(s)) out[s]=1; });
   return out;
 }
 
-// find the "per day" figure inside whatever shape the response has
-function findDaily(o){
-  if(o==null) return null;
-  if(typeof o==="object"){
-    for(const k of ["day","daily","per_day","reward_day","coins_per_day","reward_per_day"])
-      if(o[k]!=null && !isNaN(parseFloat(o[k])) && typeof o[k]!=="object") return parseFloat(o[k]);
-    for(const v of Object.values(o)){ const f=findDaily(v); if(f!=null) return f; }
+// pull a numeric value out of an unknown response shape
+function findNum(o, keyRe){
+  if(o==null || typeof o!=="object") return null;
+  for(const [k,v] of Object.entries(o)){
+    if(keyRe.test(k) && v!=null && typeof v!=="object" && !isNaN(parseFloat(v))) return parseFloat(v);
   }
+  for(const v of Object.values(o)){ const f=findNum(v,keyRe); if(f!=null) return f; }
   return null;
 }
 
-async function reward(algo, coin, mh){
-  const r = await fetch(API+"/calculate/reward",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({algo,coin,mh})});
-  const j = await r.json();
-  return {daily:findDaily(j.data ?? j), raw:j};
+async function simulate(coin, algorithm, hs){
+  const r = await fetch(API+"/simulator",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({mode:"advanced",coin,algorithm,hashrate_hs:String(hs),scenario_set:"default",referral_discount:false})});
+  const txt = await r.text(); let j; try{ j=JSON.parse(txt);}catch(e){ return {err:"HTTP "+r.status+": "+txt.slice(0,120)}; }
+  if(!r.ok || j.error || j.success===false) return {err:(j.error&&(j.error.message||j.error))||j.message||("HTTP "+r.status), raw:j};
+  const d = j.data ?? j;
+  return {
+    coinsDay: findNum(d,/^(per_?day|day|daily|coins_?per_?day|reward_?day|amount_?day)$/i) ?? findNum(d,/day/i),
+    usdDay: findNum(d,/^(usd|usd_?day|fiat_?day|daily_?usd|value_?usd)$/i),
+    raw:j
+  };
+}
+
+async function pool(items, n, fn){
+  const out = new Array(items.length); let i=0;
+  await Promise.all(Array.from({length:n},async()=>{ while(i<items.length){ const k=i++; out[k]=await fn(items[k],k); } }));
+  return out;
 }
 
 async function calculate(){
   try{
-    const hr = parseFloat($("hr").value), mh = hr*parseFloat($("unit").value);
-    if(!(hr>0)) return setStatus("Enter a hash rate greater than 0.", true);
-    const algo = $("algo").value, coins = coinsByAlgo[algo]||[];
-    setStatus(`Fetching rewards for ${coins.length} coins…`);
-    const payout = $("payout").value;
-    const symbols = [...new Set([...coins.map(c=>c.symbol),payout])];
-    const [pr, rewards] = await Promise.all([
-      loadPrices(symbols),
-      Promise.all(coins.map(c=>reward(algo,c.symbol,mh).catch(e=>({daily:null,raw:String(e)}))))
-    ]);
-    prices = pr;
-    lastResults = coins.map((c,i)=>({symbol:c.symbol,daily:rewards[i].daily}));
-    $("raw").textContent = JSON.stringify(rewards[0]?.raw,null,1)?.slice(0,4000) || "–";
+    const hr = parseFloat($("hr").value); if(!(hr>0)) return setStatus("Enter a hash rate greater than 0.", true);
+    const hs = hr*parseFloat($("unit").value), algorithm = $("algo").value.trim().toLowerCase();
+    if(!algorithm) return setStatus("Enter an algorithm.", true);
+    if(!coins.length) await loadCoins();
+    setStatus(`Asking unMineable about ${coins.length} payout coins…`);
+    let done=0;
+    const sims = await pool(coins, 6, async c=>{ const r = await simulate(c.symbol,algorithm,hs).catch(e=>({err:String(e)})); setStatus(`Checked ${++done} of ${coins.length} coins…`); return r; });
+    const ok = sims.filter(s=>!s.err);
+    diag.algorithm=algorithm; diag.hashrate_hs=hs;
+    diag.firstSuccess = ok[0]?.raw ?? null;
+    diag.firstError = sims.find(s=>s.err)?.err ?? null;
+    diag.okCount = ok.length; showDiag();
+    results = coins.map((c,i)=>({symbol:c.symbol,...sims[i]})).filter(r=>!r.err);
+    if(!results.length) return setStatus("No payout coin accepted this algorithm. Check the name (see Diagnostics for the error).", true);
+    prices = await loadPrices(results.map(r=>r.symbol));
     render();
-    const failed = lastResults.filter(r=>r.daily==null).length;
-    setStatus(`Updated ${new Date().toLocaleTimeString()}.` + (failed?` ${failed} coin(s) returned no reward data.`:""), false);
+    setStatus(`Updated ${new Date().toLocaleTimeString()} · ${results.length} coins`);
   }catch(e){
-    setStatus("Request failed: "+e.message+". Open this file locally and check your connection.", true);
+    setStatus("Request failed: "+e.message+". If this is a network or CORS error, open the file locally and check Diagnostics.", true);
   }
 }
 
 function render(){
-  const fee = (parseFloat($("fee").value)||0)/100, payout=$("payout").value, pp = overrides[payout] ?? prices[payout];
-  const rows = lastResults.map(r=>{
+  const rows = results.map(r=>{
     const price = overrides[r.symbol] ?? prices[r.symbol];
-    const gross = (r.daily!=null && price!=null) ? r.daily*price : null;
-    const net = gross!=null ? gross*(1-fee) : null;
-    return {...r,price,gross,net,pay:(net!=null&&pp)?net/pp:null};
-  }).sort((a,b)=>(b.net??-1)-(a.net??-1));
-  $("rows").innerHTML = rows.map((r,i)=>`<tr class="${i===0&&r.net!=null?"best":""}">
-    <td>${r.symbol}${i===0&&r.net!=null?" (best)":""}</td>
-    <td>${fmt(r.daily,6)}</td>
-    <td><input data-sym="${r.symbol}" value="${r.price!=null?r.price:""}" placeholder="no price" inputmode="decimal" aria-label="Price of ${r.symbol}"></td>
-    <td>${fmt(r.gross,4)}</td><td>${fmt(r.net,4)}</td>
-    <td>${fmt(r.pay,6)} ${payout}</td><td>${fmt(r.net!=null?r.net*30:null,2)}</td></tr>`).join("");
+    const usd = r.usdDay ?? ((r.coinsDay!=null && price!=null) ? r.coinsDay*price : null);
+    return {...r,price,usd};
+  }).sort((a,b)=>(b.usd??-1)-(a.usd??-1));
+  $("rows").innerHTML = rows.map((r,i)=>`<tr class="${i===0&&r.usd!=null?"best":""}">
+    <td>${r.symbol}${i===0&&r.usd!=null?" (best)":""}</td><td>${fmt(r.coinsDay,8)}</td>
+    <td><input data-sym="${r.symbol}" value="${r.price??""}" placeholder="no price" inputmode="decimal" aria-label="Price of ${r.symbol}"></td>
+    <td>${fmt(r.usd,4)}</td><td>${fmt(r.usd!=null?r.usd*30:null,2)}</td></tr>`).join("");
 }
 
 $("rows").addEventListener("change",e=>{
   const s=e.target.dataset.sym; if(!s) return;
   const v=parseFloat(e.target.value); if(isNaN(v)) delete overrides[s]; else overrides[s]=v; render();
 });
-["fee","payout"].forEach(id=>$(id).addEventListener("input",()=>lastResults.length&&render()));
 $("go").addEventListener("click",calculate);
 $("hr").addEventListener("keydown",e=>{ if(e.key==="Enter") calculate(); });
-setInterval(()=>{ if(lastResults.length) calculate(); },60000);
-loadCoins().then(calculate).catch(e=>setStatus("Could not load unMineable: "+e.message+". Open this file locally.", true));
+loadCoins().then(()=>{ $("rows").innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted)">Enter your hash rate and algorithm, then press Calculate.</td></tr>'; })
+  .catch(e=>setStatus("Could not load unMineable: "+e.message+". Open this file locally; see Diagnostics.", true));
 </script>
 </body>
 </html>
