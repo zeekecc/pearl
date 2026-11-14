@@ -21,7 +21,7 @@ button{background:var(--accent);color:var(--bg);border-color:var(--accent);curso
 #status{margin:14px 0;color:var(--muted);font-size:.9rem;min-height:1.4em}
 #status.err{color:var(--bad)}
 .wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px}
-table{width:100%;border-collapse:collapse;min-width:560px}
+table{width:100%;border-collapse:collapse;min-width:860px}
 th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
 th:first-child,td:first-child{text-align:left}
 th{font-size:.8rem;color:var(--muted);font-weight:600}
@@ -60,8 +60,8 @@ pre{background:var(--surface);border:1px solid var(--line);border-radius:6px;pad
 
 <div class="wrap">
 <table>
-  <thead><tr><th>Payout coin</th><th>Coins / day</th><th>Price (USD)</th><th>USD / day</th><th>USD / month</th></tr></thead>
-  <tbody id="rows"><tr><td colspan="5" style="text-align:center;color:var(--muted)">Loading…</td></tr></tbody>
+  <thead><tr><th>Payout coin</th><th>Coins / day</th><th>Price (USD)</th><th>USD / day</th><th>USD / month</th><th>Min cashout</th><th>Min in USD</th><th>Days to reach</th></tr></thead>
+  <tbody id="rows"><tr><td colspan="8" style="text-align:center;color:var(--muted)">Loading…</td></tr></tbody>
 </table>
 </div>
 
@@ -72,7 +72,7 @@ pre{background:var(--surface);border:1px solid var(--line);border-radius:6px;pad
 <script>
 const $ = id => document.getElementById(id);
 const API = "https://api.unmineable.dev/v1";
-let coins = [], results = [], prices = {}, overrides = {}, diag = {};
+let minPay = {}, coins = [], results = [], prices = {}, overrides = {}, diag = {};
 const COMMON_ALGOS = ["pearlpow","randomx","kawpow","etchash","ethash","autolykos","octopus","ghostrider","verthash","pearl"];
 const setStatus = (m,e)=>{ const s=$("status"); s.textContent=m; s.className=e?"err":""; };
 const fmt = (n,d=4)=>(n==null||!isFinite(n))?"–":Number(n).toLocaleString(undefined,{maximumFractionDigits:d});
@@ -160,6 +160,20 @@ async function pool(items, n, fn){
   return out;
 }
 
+const THRESH = /threshold|minimum|min_?(payout|payment|withdraw|cashout|pay)/i;
+async function loadMinPay(symbols){
+  const need = symbols.filter(x=>!(x in minPay));
+  let first = true;
+  await pool(need, 6, async sym=>{
+    try{
+      const r = await fetch(API+"/meta/coin/"+encodeURIComponent(sym)); const j = await r.json();
+      const f = findNum(j.data ?? j, THRESH);
+      minPay[sym] = f ? f.v : null;
+      if(first){ first=false; diag.minPayoutPath = f?.path ?? "none found"; diag.coinDetailSample = JSON.stringify(j).slice(0,1500); }
+    }catch(e){ minPay[sym] = null; diag.minPayoutError = String(e); }
+  });
+  showDiag();
+}
 async function calculate(){
   try{
     const hr = parseFloat($("hr").value); if(!(hr>0)) return setStatus("Enter a hash rate greater than 0.", true);
@@ -177,10 +191,11 @@ async function calculate(){
     results = coins.map((c,i)=>({symbol:c.symbol,...sims[i]})).filter(r=>!r.err);
     if(!results.length) return setStatus("No payout coin accepted this algorithm. Check the name (see Diagnostics for the error).", true);
     if(results.every(r=>r.coinsDay==null && r.usdDay==null)){
-      $("rows").innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted)">Coins responded, but no daily reward field was recognised.</td></tr>';
+      $("rows").innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted)">Coins responded, but no daily reward field was recognised.</td></tr>';
       $("raw").parentElement.open=true;
       return setStatus("unMineable answered for "+results.length+" coins, but I could not find the daily reward. Copy the Diagnostics below and send it to me.", true);
     }
+    setStatus('Loading minimum cashout amounts…'); await loadMinPay(results.map(r=>r.symbol));
     render();
     setStatus(`Updated ${new Date().toLocaleTimeString()} · ${results.length} coins`);
   }catch(e){
@@ -193,12 +208,13 @@ function render(){
     const implied = (r.usdDay!=null && r.coinsDay) ? r.usdDay/r.coinsDay : null;
     const price = overrides[r.symbol] ?? implied;
     const usd = overrides[r.symbol]!=null && r.coinsDay!=null ? r.coinsDay*overrides[r.symbol] : r.usdDay;
-    return {...r,price,usd};
+    const min = minPay[r.symbol] ?? null;
+    return {...r,price,usd,min,minUsd:(min!=null&&price!=null)?min*price:null,days:(min!=null&&r.coinsDay>0)?min/r.coinsDay:null};
   }).sort((a,b)=>(b.usd??-1)-(a.usd??-1));
   $("rows").innerHTML = rows.map((r,i)=>`<tr class="${i===0&&r.usd!=null?"best":""}">
     <td>${r.symbol}${i===0&&r.usd!=null?" (best)":""}</td><td>${fmt(r.coinsDay,8)}</td>
     <td><input data-sym="${r.symbol}" value="${r.price??""}" placeholder="no price" inputmode="decimal" aria-label="Price of ${r.symbol}"></td>
-    <td>${fmt(r.usd,4)}</td><td>${fmt(r.usd!=null?r.usd*30:null,2)}</td></tr>`).join("");
+    <td>${fmt(r.usd,4)}</td><td>${fmt(r.usd!=null?r.usd*30:null,2)}</td><td>${fmt(r.min,8)}</td><td>${fmt(r.minUsd,2)}</td><td>${fmt(r.days,1)}</td></tr>`).join("");
 }
 
 $("rows").addEventListener("change",e=>{
@@ -207,7 +223,7 @@ $("rows").addEventListener("change",e=>{
 });
 $("go").addEventListener("click",calculate);
 $("hr").addEventListener("keydown",e=>{ if(e.key==="Enter") calculate(); });
-loadCoins().then(()=>{ $("rows").innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted)">Enter your hash rate and algorithm, then press Calculate.</td></tr>'; })
+loadCoins().then(()=>{ $("rows").innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted)">Enter your hash rate and algorithm, then press Calculate.</td></tr>'; })
   .catch(e=>setStatus("Could not load unMineable: "+e.message+". Open this file locally; see Diagnostics.", true));
 </script>
 </body>
