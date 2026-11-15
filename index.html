@@ -3,228 +3,275 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>unMineable payout coin calculator</title>
+<title>unMineable payout calculator</title>
 <style>
-:root{--bg:#f3f5f4;--surface:#fff;--ink:#14211f;--muted:#5d6b68;--line:#d5dcda;--accent:#0b6b5c;--best:#e3f4ee;--bad:#a4332b}
-@media (prefers-color-scheme:dark){:root{--bg:#0f1716;--surface:#172321;--ink:#e6efed;--muted:#92a39f;--line:#2a3b38;--accent:#4cc9ad;--best:#18352f;--bad:#ff8c82}}
+:root{--bg:#f4f1ec;--surface:#fffdf9;--raised:#fff;--ink:#1d2321;--muted:#6b7570;--line:#e3ddd2;--accent:#0f7a66;--accent-ink:#fff;--best:#e6f4ee;--gold:#b8851b;--bad:#b23a30;--shadow:0 1px 2px rgba(30,40,35,.06),0 6px 20px rgba(30,40,35,.06)}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1312;--surface:#141c1a;--raised:#1a2523;--ink:#e8efec;--muted:#8a9a95;--line:#25332f;--accent:#46d1b1;--accent-ink:#06201a;--best:#14312a;--gold:#e6b653;--bad:#ff8f84;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25)}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:24px 16px}
-main{max-width:980px;margin:0 auto}
-h1{font-size:1.6rem;margin:0 0 4px}
-p.sub{margin:0 0 20px;color:var(--muted)}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;align-items:end}
-label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted)}
-input,select,button{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
-.row{display:flex;gap:6px}.row input{flex:1;min-width:0}
-button{background:var(--accent);color:var(--bg);border-color:var(--accent);cursor:pointer;font-weight:600}
+html{color-scheme:light dark}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:28px 16px 48px}
+main{max-width:1120px;margin:0 auto}
+.num{font-variant-numeric:tabular-nums}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+h1{font-size:1.75rem;letter-spacing:-.02em;margin:0;line-height:1.15}
+h1 span{color:var(--accent)}
+.sub{margin:6px 0 0;color:var(--muted);max-width:56ch}
+.live{font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.dot.on{background:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 25%,transparent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.controls{padding:18px;display:grid;grid-template-columns:minmax(220px,1.3fr) minmax(160px,1fr) auto;gap:16px;align-items:end}
+@media(max-width:720px){.controls{grid-template-columns:1fr}}
+label{display:flex;flex-direction:column;gap:6px;font-size:.78rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+input,select,button{font:inherit;color:var(--ink)}
+input[type=text],input[type=number],input[type=search],select{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--raised);width:100%;text-transform:none;letter-spacing:0;font-weight:400}
+.row{display:flex;gap:8px}.row select{width:auto}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:11px 22px;font-weight:700;cursor:pointer;transition:transform .12s ease,filter .12s ease;white-space:nowrap}
+.btn:hover{filter:brightness(1.07)}.btn:active{transform:scale(.97)}.btn:disabled{opacity:.6;cursor:wait}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-#status{margin:14px 0;color:var(--muted);font-size:.9rem;min-height:1.4em}
+#status{margin:14px 2px 6px;color:var(--muted);font-size:.88rem;min-height:1.4em}
 #status.err{color:var(--bad)}
-.wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px}
-table{width:100%;border-collapse:collapse;min-width:860px}
-th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
-th:first-child,td:first-child{text-align:left}
-th{font-size:.8rem;color:var(--muted);font-weight:600}
-tr.best td{background:var(--best);font-weight:600}
-tr:last-child td{border-bottom:0}
-td input{width:100px;text-align:right;padding:4px 6px}
-details{margin-top:16px;color:var(--muted);font-size:.85rem}
-pre{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px;overflow:auto;max-height:260px;white-space:pre-wrap}
-.note{margin-top:16px;color:var(--muted);font-size:.85rem}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:14px 0}
+.stat{padding:16px 18px;display:flex;gap:14px;align-items:center}
+.stat small{display:block;color:var(--muted);font-size:.74rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.stat b{font-size:1.25rem;letter-spacing:-.01em}
+.stat i{font-style:normal;color:var(--muted);font-size:.85rem}
+.logo{width:34px;height:34px;border-radius:50%;background:var(--raised);border:1px solid var(--line);flex:none;object-fit:cover;display:inline-grid;place-items:center;font-size:.7rem;font-weight:700;color:var(--muted);overflow:hidden}
+.stat .logo{width:44px;height:44px}
+.toolbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:18px 2px 10px}
+.toolbar input[type=search]{max-width:260px}
+.chk{display:flex;flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-weight:400;font-size:.88rem}
+.chk input{width:auto}
+.wrap{overflow:auto;max-height:70vh;border-radius:14px}
+table{width:100%;border-collapse:separate;border-spacing:0;min-width:900px}
+th,td{padding:11px 14px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1}
+thead th{position:sticky;top:0;background:var(--surface);z-index:2;padding:0}
+thead th:first-child{z-index:3}
+th button{all:unset;cursor:pointer;display:block;width:100%;padding:12px 14px;font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:inherit}
+th button:hover,th[aria-sort] button{color:var(--ink)}
+th[aria-sort=ascending] button::after{content:" ▲";font-size:.65rem}
+th[aria-sort=descending] button::after{content:" ▼";font-size:.65rem}
+tbody tr:hover td{background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+tr.best td{background:var(--best)}
+tr.best td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+tbody tr:last-child td{border-bottom:0}
+.coin{display:flex;align-items:center;gap:12px}
+.coin b{display:block;line-height:1.2}.coin span{color:var(--muted);font-size:.78rem}
+.tag{font-size:.65rem;font-weight:700;background:var(--accent);color:var(--accent-ink);border-radius:99px;padding:2px 8px;margin-left:6px;vertical-align:middle}
+.usd{font-weight:700}
+td input{width:96px;text-align:right;padding:5px 8px;border:1px solid transparent;border-radius:8px;background:transparent;font:inherit;font-variant-numeric:tabular-nums}
+td input:hover,td input:focus{border-color:var(--line);background:var(--raised)}
+.empty{text-align:center!important;color:var(--muted);padding:40px 14px}
+.skel td{height:56px}
+.skel td::after{content:"";display:block;height:12px;border-radius:6px;background:linear-gradient(90deg,var(--line),transparent,var(--line));background-size:200% 100%;animation:sh 1.2s linear infinite}
+@keyframes sh{to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.skel td::after{animation:none}.btn{transition:none}}
+details{margin-top:18px;color:var(--muted);font-size:.85rem}
+pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;max-height:260px;white-space:pre-wrap}
+.note{margin-top:14px;color:var(--muted);font-size:.82rem;max-width:90ch}
 </style>
 </head>
 <body>
 <main>
-<h1>unMineable payout coin calculator</h1>
-<p class="sub">You mine one algorithm and choose which coin unMineable pays you in. Enter your hash rate to see which payout coin earns the most in USD per day.</p>
+<header>
+  <div>
+    <h1>unMineable <span>payout</span> calculator</h1>
+    <p class="sub">You mine one algorithm and choose the coin unMineable pays you in. See which payout coin earns the most and how soon you can cash out.</p>
+  </div>
+  <label class="chk live"><span class="dot" id="dot"></span><input type="checkbox" id="auto"> Auto-refresh every 2 min</label>
+</header>
 
-<div class="panel">
+<section class="card controls" aria-label="Settings">
   <label>Your hash rate
     <span class="row">
-      <input id="hr" type="number" min="0" step="any" value="100" inputmode="decimal">
-      <select id="unit">
-        <option value="1">H/s</option><option value="1e3">KH/s</option>
-        <option value="1e6" selected>MH/s</option><option value="1e9">GH/s</option>
-        <option value="1e12">TH/s</option><option value="1e15">PH/s</option>
+      <input id="hr" type="number" min="0" step="any" value="47" inputmode="decimal">
+      <select id="unit" aria-label="Hash rate unit">
+        <option value="1">H/s</option><option value="1e3">KH/s</option><option value="1e6">MH/s</option>
+        <option value="1e9">GH/s</option><option value="1e12" selected>TH/s</option><option value="1e15">PH/s</option>
       </select>
     </span>
   </label>
   <label>Algorithm
-    <input id="algo" list="algos" value="pearlpow" autocomplete="off" spellcheck="false">
+    <input id="algo" type="text" list="algos" value="pearlpow" autocomplete="off" spellcheck="false">
     <datalist id="algos"></datalist>
   </label>
-  <button id="go">Calculate</button>
+  <button class="btn" id="go">Calculate</button>
+</section>
+
+<div id="status" role="status" aria-live="polite"></div>
+<section class="stats" id="stats" hidden></section>
+
+<div class="toolbar">
+  <input type="search" id="q" placeholder="Search coin…" aria-label="Search coin">
+  <label class="chk"><input type="checkbox" id="hideNoMin"> Hide coins without a known minimum</label>
 </div>
 
-<div id="status"></div>
-
-<div class="wrap">
+<div class="card wrap">
 <table>
-  <thead><tr><th>Payout coin</th><th>Coins / day</th><th>Price (USD)</th><th>USD / day</th><th>USD / month</th><th>Min cashout</th><th>Min in USD</th><th>Days to reach</th></tr></thead>
-  <tbody id="rows"><tr><td colspan="8" style="text-align:center;color:var(--muted)">Loading…</td></tr></tbody>
+  <thead><tr id="head"></tr></thead>
+  <tbody id="rows"></tbody>
 </table>
 </div>
 
-<details><summary>Diagnostics (copy this if something looks wrong)</summary><pre id="raw">–</pre></details>
-<p class="note">Figures come from unMineable's public simulator (1-day, current prices, 1% fee included; coins are auto-converted into the payout coin). The price shown is the one the simulator used; type your own price in a row to override it. Real earnings vary with network difficulty and exchange slippage. Open this file by double-clicking it on your computer.</p>
+<details><summary>Diagnostics</summary><pre id="raw">–</pre></details>
+<p class="note">Figures come from unMineable's public simulator: 1-day estimate at current prices, 1% fee included, mined coins auto-converted to the payout coin. The price shown is the one the simulator used. Type your own price into a row to override it. Estimates only; real earnings change with difficulty and conversion spread. Open this file by double-clicking it on your computer.</p>
 </main>
 
 <script>
 const $ = id => document.getElementById(id);
 const API = "https://api.unmineable.dev/v1";
-let minPay = {}, coins = [], results = [], prices = {}, overrides = {}, diag = {};
-const COMMON_ALGOS = ["pearlpow","randomx","kawpow","etchash","ethash","autolykos","octopus","ghostrider","verthash","pearl"];
-const setStatus = (m,e)=>{ const s=$("status"); s.textContent=m; s.className=e?"err":""; };
-const fmt = (n,d=4)=>(n==null||!isFinite(n))?"–":Number(n).toLocaleString(undefined,{maximumFractionDigits:d});
-const showDiag = ()=>{ $("raw").textContent = JSON.stringify(diag,null,1).slice(0,6000); };
+const COLS = [
+  ["symbol","Coin"],["coinsDay","Coins / day"],["price","Price (USD)"],["usd","USD / day"],
+  ["month","USD / month"],["min","Min cashout"],["minUsd","Min in USD"],["days","Days to reach"]
+];
+const COMMON_ALGOS = ["pearlpow","randomx","kawpow","etchash","ethash","autolykos","octopus","ghostrider","verthash"];
+let coins=[], results=[], overrides={}, minPay={}, diag={}, sort={key:"usd",dir:"descending"}, running=false, timer=null;
 
-function symOf(c){ return (c.symbol||c.coin||c.ticker||c.tag||c.code||"").toString().toUpperCase(); }
+const fmt=(n,d=4)=>(n==null||!isFinite(n))?"–":Number(n).toLocaleString(undefined,{maximumFractionDigits:d});
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const setStatus=(m,e)=>{const s=$("status");s.textContent=m;s.className=e?"err":"";};
+const showDiag=()=>{$("raw").textContent=JSON.stringify(diag,null,1).slice(0,6000);};
+const save=()=>{try{localStorage.setItem("umcalc",JSON.stringify({hr:$("hr").value,unit:$("unit").value,algo:$("algo").value}));}catch(e){}};
+(()=>{try{const v=JSON.parse(localStorage.getItem("umcalc")||"{}");if(v.hr)$("hr").value=v.hr;if(v.unit)$("unit").value=v.unit;if(v.algo)$("algo").value=v.algo;}catch(e){}})();
+
+$("head").innerHTML=COLS.map(([k,l])=>`<th scope="col" data-k="${k}"><button type="button">${l}</button></th>`).join("");
+
+async function pool(items,n,fn){
+  const out=new Array(items.length);let i=0;
+  await Promise.all(Array.from({length:Math.min(n,items.length)},async()=>{while(i<items.length){const k=i++;out[k]=await fn(items[k],k);}}));
+  return out;
+}
+function findNum(o,re,path=""){
+  if(o==null||typeof o!=="object")return null;
+  for(const[k,v]of Object.entries(o))if(re.test(k)&&v!=null&&typeof v!=="object"&&!isNaN(parseFloat(v)))return{v:parseFloat(v),path:path+"/"+k};
+  for(const[k,v]of Object.entries(o)){const f=findNum(v,re,path+"/"+k);if(f)return f;}
+  return null;
+}
 function collectCoins(d){
-  let list = [];
-  if (Array.isArray(d)) list = d;
-  else if (d && typeof d==="object"){
-    const arr = Object.values(d).find(v=>Array.isArray(v) && v.length && typeof v[0]==="object");
-    if (arr) list = arr;
-    else list = Object.entries(d).map(([k,v])=> (v&&typeof v==="object") ? {symbol:k,...v} : {symbol:k});
-  }
-  return list.map(c=> typeof c==="string" ? {symbol:c.toUpperCase()} : {...c,symbol:symOf(c)}).filter(c=>c.symbol);
+  let list=[];
+  if(Array.isArray(d))list=d;
+  else if(d&&typeof d==="object"){const a=Object.values(d).find(v=>Array.isArray(v)&&v.length&&typeof v[0]==="object");list=a||[];}
+  return list.map(c=>({symbol:(c.symbol||c.coin||"").toString().toUpperCase(),name:c.name||"",logo:c.logo||"",delisted:c.delisted}))
+             .filter(c=>c.symbol&&!c.delisted);
 }
 
 async function loadCoins(){
-  setStatus("Loading unMineable coin list…");
-  const r = await fetch(API+"/meta/coin?compact=true");
-  const txt = await r.text();
-  let j; try{ j = JSON.parse(txt); }catch(e){ diag.metaError = txt.slice(0,300); showDiag(); throw new Error("coin list was not JSON (HTTP "+r.status+")"); }
-  diag.metaSample = JSON.stringify(j).slice(0,1200);
-  coins = collectCoins(j.data ?? j.coins ?? j);
-  if(!coins.length){ showDiag(); throw new Error("no coins found in the response"); }
-  const found = new Set(COMMON_ALGOS);
-  coins.forEach(c=>[].concat(c.algorithms||c.algorithm||c.algo||[]).forEach(a=>{ if(typeof a==="string") found.add(a.toLowerCase()); }));
-  $("algos").innerHTML = [...found].map(a=>`<option value="${a}">`).join("");
-  diag.coinCount = coins.length; showDiag();
-  setStatus("");
+  setStatus("Loading coin list…");
+  const r=await fetch(API+"/meta/coin?compact=true");const t=await r.text();let j;
+  try{j=JSON.parse(t);}catch(e){diag.metaError=t.slice(0,300);showDiag();throw new Error("coin list was not JSON (HTTP "+r.status+")");}
+  coins=collectCoins(j.data??j.coins??j);
+  if(!coins.length)throw new Error("no coins found in the response");
+  $("algos").innerHTML=COMMON_ALGOS.map(a=>`<option value="${a}">`).join("");
+  diag.coinCount=coins.length;showDiag();setStatus("");
 }
 
-async function loadPrices(symbols){
-  const out = {};
-  try{
-    const r = await fetch("https://api.coingecko.com/api/v3/simple/price?vs_currencies=usd&symbols="+symbols.map(s=>s.toLowerCase()).join(","));
-    const j = await r.json();
-    for(const [k,v] of Object.entries(j)) if(v.usd!=null) out[k.toUpperCase()] = v.usd;
-  }catch(e){ diag.coingeckoError = String(e); }
-  try{
-    const j = await (await fetch("https://api.binance.com/api/v3/ticker/price")).json(); const m = {};
-    j.forEach(t=>m[t.symbol]=parseFloat(t.price));
-    symbols.forEach(s=>{ if(m[s+"USDT"]) out[s]=m[s+"USDT"]; });
-  }catch(e){ diag.binanceError = String(e); }
-  ["USDT","USDC","DAI"].forEach(s=>{ if(symbols.includes(s)) out[s]=1; });
-  return out;
-}
-
-// pull a numeric value out of an unknown response shape
-function findNum(o, keyRe, path=""){
-  if(o==null || typeof o!=="object") return null;
-  for(const [k,v] of Object.entries(o)){
-    if(keyRe.test(k) && v!=null && typeof v!=="object" && !isNaN(parseFloat(v))) return {v:parseFloat(v),path:path+"/"+k};
-  }
-  for(const [k,v] of Object.entries(o)){ const f=findNum(v,keyRe,path+"/"+k); if(f) return f; }
-  return null;
-}
-
-function leaves(o,path="",out=[]){
-  if(o==null) return out;
-  if(typeof o!=="object"){ if(!isNaN(parseFloat(o))) out.push(path+" = "+o); return out; }
-  for(const [k,v] of Object.entries(o)) leaves(v,path+"/"+k,out);
-  return out;
-}
-async function simulate(coin, algorithm, hs){
-  const r = await fetch(API+"/simulator",{method:"POST",headers:{"Content-Type":"application/json"},
+async function simulate(coin,algorithm,hs){
+  const r=await fetch(API+"/simulator",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({mode:"advanced",coin,algorithm,hashrate_hs:String(hs),scenario_set:"default",referral_discount:false})});
-  const txt = await r.text(); let j; try{ j=JSON.parse(txt);}catch(e){ return {err:"HTTP "+r.status+": "+txt.slice(0,120)}; }
-  if(!r.ok || j.error || j.success===false) return {err:(j.error&&(j.error.message||j.error))||j.message||("HTTP "+r.status), raw:j};
-  const d = j.data ?? j;
-  const sc = d?.algorithms?.[0]?.windows?.["1d"]?.scenarios?.spot_now;
-  const ac = sc?.auto_convert;
-  return {
-    coinsDay: ac ? parseFloat(ac.payout_coin) : null,
-    usdDay: ac ? parseFloat(ac.usdt) : null,
-    minedDay: sc ? parseFloat(sc.net_algorithm_coin_mined) : null,
-    coinsPath: "data/algorithms[0]/windows/1d/scenarios/spot_now/auto_convert",
-    raw:j
-  };
+  const t=await r.text();let j;try{j=JSON.parse(t);}catch(e){return{err:"HTTP "+r.status+": "+t.slice(0,120)};}
+  if(!r.ok||j.error||j.success===false)return{err:(j.error&&(j.error.message||j.error))||j.message||("HTTP "+r.status),raw:j};
+  const ac=j.data?.algorithms?.[0]?.windows?.["1d"]?.scenarios?.spot_now?.auto_convert;
+  return{coinsDay:ac?parseFloat(ac.payout_coin):null,usdDay:ac?parseFloat(ac.usdt):null,raw:j};
 }
 
-async function pool(items, n, fn){
-  const out = new Array(items.length); let i=0;
-  await Promise.all(Array.from({length:n},async()=>{ while(i<items.length){ const k=i++; out[k]=await fn(items[k],k); } }));
-  return out;
-}
-
-const THRESH = /threshold|minimum|min_?(payout|payment|withdraw|cashout|pay)/i;
+const THRESH=/threshold|minimum|min_?(payout|payment|withdraw|cashout|pay)/i;
 async function loadMinPay(symbols){
-  const need = symbols.filter(x=>!(x in minPay));
-  let first = true;
-  await pool(need, 6, async sym=>{
+  let first=true;
+  await pool(symbols.filter(s=>!(s in minPay)),8,async sym=>{
     try{
-      const r = await fetch(API+"/meta/coin/"+encodeURIComponent(sym)); const j = await r.json();
-      const f = findNum(j.data ?? j, THRESH);
-      minPay[sym] = f ? f.v : null;
-      if(first){ first=false; diag.minPayoutPath = f?.path ?? "none found"; diag.coinDetailSample = JSON.stringify(j).slice(0,1500); }
-    }catch(e){ minPay[sym] = null; diag.minPayoutError = String(e); }
+      const j=await(await fetch(API+"/meta/coin/"+encodeURIComponent(sym))).json();
+      const f=findNum(j.data??j,THRESH);minPay[sym]=f?f.v:null;
+      if(first){first=false;diag.minPayoutPath=f?.path??"none found";diag.coinDetailSample=JSON.stringify(j).slice(0,1500);}
+    }catch(e){minPay[sym]=null;diag.minPayoutError=String(e);}
   });
-  showDiag();
 }
+
 async function calculate(){
+  if(running)return;
+  const hr=parseFloat($("hr").value);
+  if(!(hr>0))return setStatus("Enter a hash rate greater than 0.",true);
+  const algorithm=$("algo").value.trim().toLowerCase();
+  if(!algorithm)return setStatus("Enter an algorithm.",true);
+  running=true;$("go").disabled=true;$("dot").classList.add("on");save();
+  const hs=hr*parseFloat($("unit").value);
   try{
-    const hr = parseFloat($("hr").value); if(!(hr>0)) return setStatus("Enter a hash rate greater than 0.", true);
-    const hs = hr*parseFloat($("unit").value), algorithm = $("algo").value.trim().toLowerCase();
-    if(!algorithm) return setStatus("Enter an algorithm.", true);
-    if(!coins.length) await loadCoins();
-    setStatus(`Asking unMineable about ${coins.length} payout coins…`);
-    let done=0;
-    const sims = await pool(coins, 6, async c=>{ const r = await simulate(c.symbol,algorithm,hs).catch(e=>({err:String(e)})); setStatus(`Checked ${++done} of ${coins.length} coins…`); return r; });
-    const ok = sims.filter(s=>!s.err);
-    diag.algorithm=algorithm; diag.hashrate_hs=hs;
-    diag.firstSuccess = ok[0]?.raw ?? null; diag.allNumbersInFirstResponse = ok[0] ? leaves(ok[0].raw) : null;
-    diag.firstError = sims.find(s=>s.err)?.err ?? null;
-    diag.okCount = ok.length; diag.fieldUsedForCoinsPerDay = ok[0]?.coinsPath ?? 'none found'; diag.firstValueRead = ok[0]?.coinsDay ?? null; showDiag();
-    results = coins.map((c,i)=>({symbol:c.symbol,...sims[i]})).filter(r=>!r.err);
-    if(!results.length) return setStatus("No payout coin accepted this algorithm. Check the name (see Diagnostics for the error).", true);
-    if(results.every(r=>r.coinsDay==null && r.usdDay==null)){
-      $("rows").innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted)">Coins responded, but no daily reward field was recognised.</td></tr>';
-      $("raw").parentElement.open=true;
-      return setStatus("unMineable answered for "+results.length+" coins, but I could not find the daily reward. Copy the Diagnostics below and send it to me.", true);
-    }
-    setStatus('Loading minimum cashout amounts…'); await loadMinPay(results.map(r=>r.symbol));
-    render();
-    setStatus(`Updated ${new Date().toLocaleTimeString()} · ${results.length} coins`);
+    if(!coins.length)await loadCoins();
+    if(!results.length)$("rows").innerHTML=Array(6).fill('<tr class="skel">'+'<td></td>'.repeat(8)+'</tr>').join("");
+    let done=0;setStatus(`Checking ${coins.length} payout coins…`);
+    const sims=await pool(coins,8,async c=>{const r=await simulate(c.symbol,algorithm,hs).catch(e=>({err:String(e)}));if(++done%10===0)setStatus(`Checked ${done} of ${coins.length} coins…`);return r;});
+    const ok=sims.filter(s=>!s.err);
+    Object.assign(diag,{algorithm,hashrate_hs:hs,okCount:ok.length,firstError:sims.find(s=>s.err)?.err??null,firstSuccess:ok[0]?.raw??null});
+    results=coins.map((c,i)=>({...c,...sims[i]})).filter(r=>!r.err&&r.coinsDay!=null);
+    if(!results.length){showDiag();$("rows").innerHTML="";$("stats").hidden=true;
+      return setStatus("No payout coin accepted this algorithm or no reward was returned. Check the algorithm name and Diagnostics.",true);}
+    setStatus("Loading minimum cashout amounts…");
+    await loadMinPay(results.map(r=>r.symbol));
+    showDiag();render();
+    setStatus(`Updated ${new Date().toLocaleTimeString()} · ${results.length} payout coins`);
   }catch(e){
-    setStatus("Request failed: "+e.message+". If this is a network or CORS error, open the file locally and check Diagnostics.", true);
-  }
+    $("rows").innerHTML="";
+    setStatus("Request failed: "+e.message+". Open this file locally and check Diagnostics.",true);showDiag();
+  }finally{running=false;$("go").disabled=false;$("dot").classList.toggle("on",$("auto").checked);}
 }
 
+function logo(c,cls=""){
+  const ini=esc(c.symbol.slice(0,3));
+  return c.logo?`<img class="logo ${cls}" src="${esc(c.logo)}" alt="" width="34" height="34" loading="lazy" decoding="async" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:this.className,textContent:'${ini}'}))">`
+               :`<span class="logo ${cls}">${ini}</span>`;
+}
+function view(){
+  const q=$("q").value.trim().toLowerCase(),hide=$("hideNoMin").checked;
+  let rows=results.map(r=>{
+    const implied=(r.usdDay!=null&&r.coinsDay)?r.usdDay/r.coinsDay:null;
+    const ov=overrides[r.symbol];
+    const price=ov??implied,usd=ov!=null?r.coinsDay*ov:r.usdDay,min=minPay[r.symbol]??null;
+    return{...r,price,usd,month:usd!=null?usd*30:null,min,minUsd:(min!=null&&price!=null)?min*price:null,days:(min!=null&&r.coinsDay>0)?min/r.coinsDay:null};
+  });
+  if(q)rows=rows.filter(r=>r.symbol.toLowerCase().includes(q)||r.name.toLowerCase().includes(q));
+  if(hide)rows=rows.filter(r=>r.min!=null);
+  const k=sort.key,dir=sort.dir==="ascending"?1:-1;
+  rows.sort((a,b)=>{
+    const x=a[k],y=b[k];if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;
+    return(typeof x==="string"?x.localeCompare(y):x-y)*dir;
+  });
+  return rows;
+}
 function render(){
-  const rows = results.map(r=>{
-    const implied = (r.usdDay!=null && r.coinsDay) ? r.usdDay/r.coinsDay : null;
-    const price = overrides[r.symbol] ?? implied;
-    const usd = overrides[r.symbol]!=null && r.coinsDay!=null ? r.coinsDay*overrides[r.symbol] : r.usdDay;
-    const min = minPay[r.symbol] ?? null;
-    return {...r,price,usd,min,minUsd:(min!=null&&price!=null)?min*price:null,days:(min!=null&&r.coinsDay>0)?min/r.coinsDay:null};
-  }).sort((a,b)=>(b.usd??-1)-(a.usd??-1));
-  $("rows").innerHTML = rows.map((r,i)=>`<tr class="${i===0&&r.usd!=null?"best":""}">
-    <td>${r.symbol}${i===0&&r.usd!=null?" (best)":""}</td><td>${fmt(r.coinsDay,8)}</td>
-    <td><input data-sym="${r.symbol}" value="${r.price??""}" placeholder="no price" inputmode="decimal" aria-label="Price of ${r.symbol}"></td>
-    <td>${fmt(r.usd,4)}</td><td>${fmt(r.usd!=null?r.usd*30:null,2)}</td><td>${fmt(r.min,8)}</td><td>${fmt(r.minUsd,2)}</td><td>${fmt(r.days,1)}</td></tr>`).join("");
+  document.querySelectorAll("#head th").forEach(th=>{th.removeAttribute("aria-sort");if(th.dataset.k===sort.key)th.setAttribute("aria-sort",sort.dir);});
+  const all=view();
+  const best=[...all].filter(r=>r.usd!=null).sort((a,b)=>b.usd-a.usd)[0];
+  const fast=[...all].filter(r=>r.days!=null).sort((a,b)=>a.days-b.days)[0];
+  $("stats").hidden=!best;
+  if(best)$("stats").innerHTML=
+    `<div class="card stat">${logo(best,"")}<div><small>Best earning</small><b>${esc(best.symbol)} · $${fmt(best.usd,3)}/day</b><br><i class="num">$${fmt(best.month,2)} per month</i></div></div>`+
+    (fast?`<div class="card stat">${logo(fast,"")}<div><small>Fastest to cash out</small><b>${esc(fast.symbol)} · ${fmt(fast.days,1)} days</b><br><i class="num">minimum ${fmt(fast.min,6)} ${esc(fast.symbol)}</i></div></div>`:"")+
+    `<div class="card stat"><div><small>Payout coins</small><b>${results.length}</b><br><i>at ${fmt(parseFloat($("hr").value),2)} ${$("unit").selectedOptions[0].text}</i></div></div>`;
+  $("rows").innerHTML=all.length?all.map(r=>{
+    const isBest=best&&r.symbol===best.symbol;
+    return`<tr class="${isBest?"best":""}"><td><div class="coin">${logo(r)}<div><b>${esc(r.symbol)}${isBest?'<span class="tag">BEST</span>':""}</b><span>${esc(r.name)}</span></div></div></td>`+
+    `<td class="num">${fmt(r.coinsDay,8)}</td>`+
+    `<td><input class="num" data-sym="${esc(r.symbol)}" value="${r.price!=null?+r.price.toPrecision(6):""}" placeholder="–" inputmode="decimal" aria-label="Price of ${esc(r.symbol)} in USD"></td>`+
+    `<td class="num usd">$${fmt(r.usd,4)}</td><td class="num">$${fmt(r.month,2)}</td>`+
+    `<td class="num">${fmt(r.min,8)}</td><td class="num">${r.minUsd!=null?"$"+fmt(r.minUsd,2):"–"}</td><td class="num">${fmt(r.days,1)}</td></tr>`;
+  }).join(""):`<tr><td colspan="8" class="empty">No coins match.</td></tr>`;
 }
 
-$("rows").addEventListener("change",e=>{
-  const s=e.target.dataset.sym; if(!s) return;
-  const v=parseFloat(e.target.value); if(isNaN(v)) delete overrides[s]; else overrides[s]=v; render();
+$("head").addEventListener("click",e=>{
+  const th=e.target.closest("th");if(!th||!results.length)return;
+  const k=th.dataset.k;sort=sort.key===k?{key:k,dir:sort.dir==="descending"?"ascending":"descending"}:{key:k,dir:k==="symbol"||k==="days"||k==="min"||k==="minUsd"?"ascending":"descending"};render();
 });
+$("rows").addEventListener("change",e=>{
+  const s=e.target.dataset.sym;if(!s)return;
+  const v=parseFloat(e.target.value);if(isNaN(v))delete overrides[s];else overrides[s]=v;render();
+});
+let qt;$("q").addEventListener("input",()=>{clearTimeout(qt);qt=setTimeout(()=>results.length&&render(),120);});
+$("hideNoMin").addEventListener("change",()=>results.length&&render());
 $("go").addEventListener("click",calculate);
-$("hr").addEventListener("keydown",e=>{ if(e.key==="Enter") calculate(); });
-loadCoins().then(()=>{ $("rows").innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted)">Enter your hash rate and algorithm, then press Calculate.</td></tr>'; })
-  .catch(e=>setStatus("Could not load unMineable: "+e.message+". Open this file locally; see Diagnostics.", true));
+["hr","algo"].forEach(id=>$(id).addEventListener("keydown",e=>{if(e.key==="Enter")calculate();}));
+$("auto").addEventListener("change",()=>{clearInterval(timer);$("dot").classList.toggle("on",$("auto").checked);if($("auto").checked)timer=setInterval(()=>{if(!document.hidden)calculate();},120000);});
+$("rows").innerHTML='<tr><td colspan="8" class="empty">Enter your hash rate and press Calculate.</td></tr>';
+loadCoins().catch(e=>setStatus("Could not load unMineable: "+e.message+". Open this file locally; see Diagnostics.",true));
 </script>
 </body>
 </html>
