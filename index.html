@@ -46,12 +46,14 @@ input[type=text],input[type=number],input[type=search],select{padding:10px 12px;
 table{width:100%;border-collapse:separate;border-spacing:0;min-width:900px}
 th,td{padding:11px 14px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
 th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1}
-thead th{position:sticky;top:0;background:var(--surface);z-index:2;padding:0}
-thead th:first-child{z-index:3}
-th button{all:unset;cursor:pointer;display:block;width:100%;padding:12px 14px;font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:inherit}
-th button:hover,th[aria-sort] button{color:var(--ink)}
-th[aria-sort=ascending] button::after{content:" ▲";font-size:.65rem}
-th[aria-sort=descending] button::after{content:" ▼";font-size:.65rem}
+thead th{position:sticky;top:0;z-index:2;padding:0;background:var(--raised);border-bottom:2px solid var(--line);color:var(--ink)}
+thead th:first-child{z-index:4;background:var(--raised)}
+th button{appearance:none;-webkit-appearance:none;background:transparent;border:0;margin:0;cursor:pointer;display:block;width:100%;padding:14px;font:inherit;font-size:.82rem;font-weight:700;line-height:1.2;letter-spacing:.02em;color:var(--ink);opacity:.82;text-align:right;white-space:nowrap}
+th:first-child button{text-align:left}
+th button:hover{opacity:1}
+th[aria-sort] button{opacity:1;color:var(--accent)}
+th[aria-sort=ascending] button::after{content:" \25B2";font-size:.65rem}
+th[aria-sort=descending] button::after{content:" \25BC";font-size:.65rem}
 tbody tr:hover td{background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
 tr.best td{background:var(--best)}
 tr.best td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
@@ -67,8 +69,6 @@ td input:hover,td input:focus{border-color:var(--line);background:var(--raised)}
 .skel td::after{content:"";display:block;height:12px;border-radius:6px;background:linear-gradient(90deg,var(--line),transparent,var(--line));background-size:200% 100%;animation:sh 1.2s linear infinite}
 @keyframes sh{to{background-position:-200% 0}}
 @media (prefers-reduced-motion:reduce){.skel td::after{animation:none}.btn{transition:none}}
-details{margin-top:18px;color:var(--muted);font-size:.85rem}
-pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;max-height:260px;white-space:pre-wrap}
 .note{margin-top:14px;color:var(--muted);font-size:.82rem;max-width:90ch}
 </style>
 </head>
@@ -114,7 +114,6 @@ pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;pa
 </table>
 </div>
 
-<details><summary>Diagnostics</summary><pre id="raw">–</pre></details>
 <p class="note">Figures come from unMineable's public simulator: 1-day estimate at current prices, 1% fee included, mined coins auto-converted to the payout coin. The price shown is the one the simulator used. Type your own price into a row to override it. Estimates only; real earnings change with difficulty and conversion spread. Open this file by double-clicking it on your computer.</p>
 </main>
 
@@ -126,12 +125,11 @@ const COLS = [
   ["month","USD / month"],["min","Min cashout"],["minUsd","Min in USD"],["days","Days to reach"]
 ];
 const COMMON_ALGOS = ["pearlpow","randomx","kawpow","etchash","ethash","autolykos","octopus","ghostrider","verthash"];
-let coins=[], results=[], overrides={}, minPay={}, diag={}, sort={key:"usd",dir:"descending"}, running=false, timer=null;
+let coins=[], results=[], overrides={}, minPay={}, sort={key:"usd",dir:"descending"}, running=false, timer=null;
 
 const fmt=(n,d=4)=>(n==null||!isFinite(n))?"–":Number(n).toLocaleString(undefined,{maximumFractionDigits:d});
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const setStatus=(m,e)=>{const s=$("status");s.textContent=m;s.className=e?"err":"";};
-const showDiag=()=>{$("raw").textContent=JSON.stringify(diag,null,1).slice(0,6000);};
 const save=()=>{try{localStorage.setItem("umcalc",JSON.stringify({hr:$("hr").value,unit:$("unit").value,algo:$("algo").value}));}catch(e){}};
 (()=>{try{const v=JSON.parse(localStorage.getItem("umcalc")||"{}");if(v.hr)$("hr").value=v.hr;if(v.unit)$("unit").value=v.unit;if(v.algo)$("algo").value=v.algo;}catch(e){}})();
 
@@ -159,31 +157,29 @@ function collectCoins(d){
 async function loadCoins(){
   setStatus("Loading coin list…");
   const r=await fetch(API+"/meta/coin?compact=true");const t=await r.text();let j;
-  try{j=JSON.parse(t);}catch(e){diag.metaError=t.slice(0,300);showDiag();throw new Error("coin list was not JSON (HTTP "+r.status+")");}
+  try{j=JSON.parse(t);}catch(e){throw new Error("coin list was not JSON (HTTP "+r.status+")");}
   coins=collectCoins(j.data??j.coins??j);
   if(!coins.length)throw new Error("no coins found in the response");
   $("algos").innerHTML=COMMON_ALGOS.map(a=>`<option value="${a}">`).join("");
-  diag.coinCount=coins.length;showDiag();setStatus("");
+  setStatus("");
 }
 
 async function simulate(coin,algorithm,hs){
   const r=await fetch(API+"/simulator",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({mode:"advanced",coin,algorithm,hashrate_hs:String(hs),scenario_set:"default",referral_discount:false})});
   const t=await r.text();let j;try{j=JSON.parse(t);}catch(e){return{err:"HTTP "+r.status+": "+t.slice(0,120)};}
-  if(!r.ok||j.error||j.success===false)return{err:(j.error&&(j.error.message||j.error))||j.message||("HTTP "+r.status),raw:j};
+  if(!r.ok||j.error||j.success===false)return{err:(j.error&&(j.error.message||j.error))||j.message||("HTTP "+r.status)};
   const ac=j.data?.algorithms?.[0]?.windows?.["1d"]?.scenarios?.spot_now?.auto_convert;
-  return{coinsDay:ac?parseFloat(ac.payout_coin):null,usdDay:ac?parseFloat(ac.usdt):null,raw:j};
+  return{coinsDay:ac?parseFloat(ac.payout_coin):null,usdDay:ac?parseFloat(ac.usdt):null};
 }
 
 const THRESH=/threshold|minimum|min_?(payout|payment|withdraw|cashout|pay)/i;
 async function loadMinPay(symbols){
-  let first=true;
   await pool(symbols.filter(s=>!(s in minPay)),8,async sym=>{
     try{
       const j=await(await fetch(API+"/meta/coin/"+encodeURIComponent(sym))).json();
       const f=findNum(j.data??j,THRESH);minPay[sym]=f?f.v:null;
-      if(first){first=false;diag.minPayoutPath=f?.path??"none found";diag.coinDetailSample=JSON.stringify(j).slice(0,1500);}
-    }catch(e){minPay[sym]=null;diag.minPayoutError=String(e);}
+    }catch(e){minPay[sym]=null;}
   });
 }
 
@@ -200,18 +196,16 @@ async function calculate(){
     if(!results.length)$("rows").innerHTML=Array(6).fill('<tr class="skel">'+'<td></td>'.repeat(8)+'</tr>').join("");
     let done=0;setStatus(`Checking ${coins.length} payout coins…`);
     const sims=await pool(coins,8,async c=>{const r=await simulate(c.symbol,algorithm,hs).catch(e=>({err:String(e)}));if(++done%10===0)setStatus(`Checked ${done} of ${coins.length} coins…`);return r;});
-    const ok=sims.filter(s=>!s.err);
-    Object.assign(diag,{algorithm,hashrate_hs:hs,okCount:ok.length,firstError:sims.find(s=>s.err)?.err??null,firstSuccess:ok[0]?.raw??null});
     results=coins.map((c,i)=>({...c,...sims[i]})).filter(r=>!r.err&&r.coinsDay!=null);
-    if(!results.length){showDiag();$("rows").innerHTML="";$("stats").hidden=true;
-      return setStatus("No payout coin accepted this algorithm or no reward was returned. Check the algorithm name and Diagnostics.",true);}
+    if(!results.length){$("rows").innerHTML="";$("stats").hidden=true;
+      return setStatus("No payout coin accepted this algorithm. Check the algorithm name.",true);}
     setStatus("Loading minimum cashout amounts…");
     await loadMinPay(results.map(r=>r.symbol));
-    showDiag();render();
+    render();
     setStatus(`Updated ${new Date().toLocaleTimeString()} · ${results.length} payout coins`);
   }catch(e){
     $("rows").innerHTML="";
-    setStatus("Request failed: "+e.message+". Open this file locally and check Diagnostics.",true);showDiag();
+    setStatus("Request failed: "+e.message+". Open this file locally and check your connection.",true);
   }finally{running=false;$("go").disabled=false;$("dot").classList.toggle("on",$("auto").checked);}
 }
 
@@ -271,7 +265,7 @@ $("go").addEventListener("click",calculate);
 ["hr","algo"].forEach(id=>$(id).addEventListener("keydown",e=>{if(e.key==="Enter")calculate();}));
 $("auto").addEventListener("change",()=>{clearInterval(timer);$("dot").classList.toggle("on",$("auto").checked);if($("auto").checked)timer=setInterval(()=>{if(!document.hidden)calculate();},120000);});
 $("rows").innerHTML='<tr><td colspan="8" class="empty">Enter your hash rate and press Calculate.</td></tr>';
-loadCoins().catch(e=>setStatus("Could not load unMineable: "+e.message+". Open this file locally; see Diagnostics.",true));
+loadCoins().catch(e=>setStatus("Could not load unMineable: "+e.message+". Open this file locally and check your connection.",true));
 </script>
 </body>
 </html>
