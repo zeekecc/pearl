@@ -93,8 +93,18 @@ td input:hover,td input:focus{border-color:var(--line);background:var(--raised)}
     </span>
   </label>
   <label>Algorithm
-    <input id="algo" type="text" list="algos" value="pearlpow" autocomplete="off" spellcheck="false">
-    <datalist id="algos"></datalist>
+    <select id="algoSel" aria-label="Algorithm">
+      <option value="pearlpow">PearlPoW (Pearl)</option>
+      <option value="randomx">RandomX (Monero)</option>
+      <option value="kawpow">KawPow (Ravencoin)</option>
+      <option value="etchash">Etchash (Ethereum Classic)</option>
+      <option value="autolykos">Autolykos (Ergo)</option>
+      <option value="octopus">Octopus (Conflux)</option>
+      <option value="ghostrider">Ghostrider (Raptoreum)</option>
+      <option value="verthash">Verthash (Vertcoin)</option>
+      <option value="__other">Other…</option>
+    </select>
+    <input id="algo" type="text" placeholder="algorithm name" autocomplete="off" spellcheck="false" hidden>
   </label>
   <button class="btn" id="go">Calculate</button>
 </section>
@@ -124,14 +134,20 @@ const COLS = [
   ["symbol","Coin"],["coinsDay","Coins / day"],["price","Price (USD)"],["usd","USD / day"],
   ["month","USD / month"],["min","Min cashout"],["minUsd","Min in USD"],["days","Days to reach"]
 ];
-const COMMON_ALGOS = ["pearlpow","randomx","kawpow","etchash","ethash","autolykos","octopus","ghostrider","verthash"];
+const algoValue=()=>($("algoSel").value==="__other"?$("algo").value:$("algoSel").value).trim().toLowerCase();
+function setAlgo(v){
+  const sel=$("algoSel");
+  if([...sel.options].some(o=>o.value===v&&v!=="__other"))sel.value=v;
+  else if(v){sel.value="__other";$("algo").value=v;}
+  $("algo").hidden=sel.value!=="__other";
+}
 let coins=[], results=[], overrides={}, minPay={}, sort={key:"usd",dir:"descending"}, running=false, timer=null;
 
 const fmt=(n,d=4)=>(n==null||!isFinite(n))?"–":Number(n).toLocaleString(undefined,{maximumFractionDigits:d});
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const setStatus=(m,e)=>{const s=$("status");s.textContent=m;s.className=e?"err":"";};
-const save=()=>{try{localStorage.setItem("umcalc",JSON.stringify({hr:$("hr").value,unit:$("unit").value,algo:$("algo").value}));}catch(e){}};
-(()=>{try{const v=JSON.parse(localStorage.getItem("umcalc")||"{}");if(v.hr)$("hr").value=v.hr;if(v.unit)$("unit").value=v.unit;if(v.algo)$("algo").value=v.algo;}catch(e){}})();
+const save=()=>{try{localStorage.setItem("umcalc",JSON.stringify({hr:$("hr").value,unit:$("unit").value,algo:algoValue()}));}catch(e){}};
+(()=>{try{const v=JSON.parse(localStorage.getItem("umcalc")||"{}");if(v.hr)$("hr").value=v.hr;if(v.unit)$("unit").value=v.unit;if(v.algo)setAlgo(v.algo);}catch(e){}})();
 
 $("head").innerHTML=COLS.map(([k,l])=>`<th scope="col" data-k="${k}"><button type="button">${l}</button></th>`).join("");
 
@@ -160,7 +176,6 @@ async function loadCoins(){
   try{j=JSON.parse(t);}catch(e){throw new Error("coin list was not JSON (HTTP "+r.status+")");}
   coins=collectCoins(j.data??j.coins??j);
   if(!coins.length)throw new Error("no coins found in the response");
-  $("algos").innerHTML=COMMON_ALGOS.map(a=>`<option value="${a}">`).join("");
   setStatus("");
 }
 
@@ -187,7 +202,7 @@ async function calculate(){
   if(running)return;
   const hr=parseFloat($("hr").value);
   if(!(hr>0))return setStatus("Enter a hash rate greater than 0.",true);
-  const algorithm=$("algo").value.trim().toLowerCase();
+  const algorithm=algoValue();
   if(!algorithm)return setStatus("Enter an algorithm.",true);
   running=true;$("go").disabled=true;$("dot").classList.add("on");save();
   const hs=hr*parseFloat($("unit").value);
@@ -263,6 +278,7 @@ let qt;$("q").addEventListener("input",()=>{clearTimeout(qt);qt=setTimeout(()=>r
 $("hideNoMin").addEventListener("change",()=>results.length&&render());
 $("go").addEventListener("click",calculate);
 ["hr","algo"].forEach(id=>$(id).addEventListener("keydown",e=>{if(e.key==="Enter")calculate();}));
+$("algoSel").addEventListener("change",()=>{const o=$("algoSel").value==="__other";$("algo").hidden=!o;if(o)$("algo").focus();});
 $("auto").addEventListener("change",()=>{clearInterval(timer);$("dot").classList.toggle("on",$("auto").checked);if($("auto").checked)timer=setInterval(()=>{if(!document.hidden)calculate();},120000);});
 $("rows").innerHTML='<tr><td colspan="8" class="empty">Enter your hash rate and press Calculate.</td></tr>';
 loadCoins().catch(e=>setStatus("Could not load unMineable: "+e.message+". Open this file locally and check your connection.",true));
