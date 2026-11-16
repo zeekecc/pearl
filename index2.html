@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>unMineable payout calculator</title>
+<style>
+:root{--bg:#f4f1ec;--surface:#fffdf9;--raised:#fff;--ink:#1d2321;--muted:#6b7570;--line:#e3ddd2;--accent:#0f7a66;--accent-ink:#fff;--best:#e6f4ee;--gold:#b8851b;--bad:#b23a30;--shadow:0 1px 2px rgba(30,40,35,.06),0 6px 20px rgba(30,40,35,.06)}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1312;--surface:#141c1a;--raised:#1a2523;--ink:#e8efec;--muted:#8a9a95;--line:#25332f;--accent:#46d1b1;--accent-ink:#06201a;--best:#14312a;--gold:#e6b653;--bad:#ff8f84;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25)}}
+*{box-sizing:border-box}
+html{color-scheme:light dark}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:28px 16px 48px}
+main{max-width:1120px;margin:0 auto}
+.num{font-variant-numeric:tabular-nums}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+h1{font-size:1.75rem;letter-spacing:-.02em;margin:0;line-height:1.15}
+h1 span{color:var(--accent)}
+.sub{margin:6px 0 0;color:var(--muted);max-width:56ch}
+.live{font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.dot.on{background:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 25%,transparent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.controls{padding:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;align-items:end}
+@media(max-width:720px){.controls{grid-template-columns:1fr}}
+label{display:flex;flex-direction:column;gap:6px;font-size:.78rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+input,select,button{font:inherit;color:var(--ink)}
+input[type=text],input[type=number],input[type=search],select{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--raised);width:100%;text-transform:none;letter-spacing:0;font-weight:400}
+.row{display:flex;gap:8px}.row select{width:auto}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:11px 22px;font-weight:700;cursor:pointer;transition:transform .12s ease,filter .12s ease;white-space:nowrap}
+.btn:hover{filter:brightness(1.07)}.btn:active{transform:scale(.97)}.btn:disabled{opacity:.6;cursor:wait}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#status{margin:14px 2px 6px;color:var(--muted);font-size:.88rem;min-height:1.4em}
+#status.err{color:var(--bad)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:14px 0}
+.stat{padding:16px 18px;display:flex;gap:14px;align-items:center}
+.stat small{display:block;color:var(--muted);font-size:.74rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.stat b{font-size:1.25rem;letter-spacing:-.01em}
+.stat i{font-style:normal;color:var(--muted);font-size:.85rem}
+.logo{width:34px;height:34px;border-radius:50%;background:var(--raised);border:1px solid var(--line);flex:none;object-fit:cover;display:inline-grid;place-items:center;font-size:.7rem;font-weight:700;color:var(--muted);overflow:hidden}
+.stat .logo{width:44px;height:44px}
+.toolbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:18px 2px 10px}
+.toolbar input[type=search]{max-width:260px}
+.chk{display:flex;flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-weight:400;font-size:.88rem}
+.chk input{width:auto}
+.wrap{overflow:auto;max-height:70vh;border-radius:14px}
+table{width:100%;border-collapse:separate;border-spacing:0;min-width:900px}
+th,td{padding:11px 14px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1}
+thead th{position:sticky;top:0;z-index:2;padding:0;background:var(--raised);border-bottom:2px solid var(--line);color:var(--ink)}
+thead th:first-child{z-index:4;background:var(--raised)}
+th button{appearance:none;-webkit-appearance:none;background:transparent;border:0;margin:0;cursor:pointer;display:block;width:100%;padding:14px;font:inherit;font-size:.82rem;font-weight:700;line-height:1.2;letter-spacing:.02em;color:var(--ink);opacity:.82;text-align:right;white-space:nowrap}
+th:first-child button{text-align:left}
+th button:hover{opacity:1}
+th[aria-sort] button{opacity:1;color:var(--accent)}
+th[aria-sort=ascending] button::after{content:" \25B2";font-size:.65rem}
+th[aria-sort=descending] button::after{content:" \25BC";font-size:.65rem}
+tbody tr:hover td{background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+tr.best td{background:var(--best)}
+tr.best td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+tbody tr:last-child td{border-bottom:0}
+.coin{display:flex;align-items:center;gap:12px}
+.coin b{display:block;line-height:1.2}.coin span{color:var(--muted);font-size:.78rem}
+.tag{font-size:.65rem;font-weight:700;background:var(--accent);color:var(--accent-ink);border-radius:99px;padding:2px 8px;margin-left:6px;vertical-align:middle}
+.usd{font-weight:700}
+td input{width:96px;text-align:right;padding:5px 8px;border:1px solid transparent;border-radius:8px;background:transparent;font:inherit;font-variant-numeric:tabular-nums}
+td input:hover,td input:focus{border-color:var(--line);background:var(--raised)}
+.bench{margin-top:14px;padding:0}
+.bench summary{cursor:pointer;padding:14px 18px;font-weight:600}
+.benchbody{padding:0 18px 16px}
+.benchbody p{margin:0 0 12px;color:var(--muted);font-size:.85rem}
+.benchgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.gpu{all:unset;box-sizing:border-box;cursor:pointer;display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--raised);font-size:.88rem}
+.gpu:hover{border-color:var(--accent)}.gpu.on{border-color:var(--accent);background:var(--best)}
+.gpu:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.gpu b{font-variant-numeric:tabular-nums}
+.empty{text-align:center!important;color:var(--muted);padding:40px 14px}
+.skel td{height:56px}
+.skel td::after{content:"";display:block;height:12px;border-radius:6px;background:linear-gradient(90deg,var(--line),transparent,var(--line));background-size:200% 100%;animation:sh 1.2s linear infinite}
+@keyframes sh{to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.skel td::after{animation:none}.btn{transition:none}}
+.note{margin-top:14px;color:var(--muted);font-size:.82rem;max-width:90ch}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div>
+    <h1>unMineable <span>payout</span> calculator</h1>
+    <p class="sub">You mine one algorithm and choose the coin unMineable pays you in. See which payout coin earns the most and how soon you can cash out.</p>
+  </div>
+  <label class="chk live"><span class="dot" id="dot"></span><input type="checkbox" id="auto"> Auto-refresh every 2 min</label>
+</header>
+
+<section class="card controls" aria-label="Settings">
+  <label>Your hash rate
+    <span class="row">
+      <input id="hr" type="number" min="0" step="any" value="47" inputmode="decimal">
+      <select id="unit" aria-label="Hash rate unit">
+        <option value="1">H/s</option><option value="1e3">KH/s</option><option value="1e6">MH/s</option>
+        <option value="1e9">GH/s</option><option value="1e12" selected>TH/s</option><option value="1e15">PH/s</option>
+      </select>
+    </span>
+  </label>
+  <label>Algorithm
+    <select id="algoSel" aria-label="Algorithm"></select>
+    <input id="algo" type="text" placeholder="algorithm name" autocomplete="off" spellcheck="false" hidden>
+  </label>
+  <label>GPU benchmark
+    <span class="row">
+      <select id="gpuSel" aria-label="GPU model"></select>
+      <input id="qty" type="number" min="1" step="1" value="1" aria-label="Number of GPUs" title="Number of GPUs" style="width:76px">
+    </span>
+  </label>
+  <button class="btn" id="go">Calculate</button>
+</section>
+
+<details class="card bench" id="benchBox"><summary id="benchTitle">GPU benchmarks</summary>
+  <div class="benchbody"><p id="benchNote"></p><div class="benchgrid" id="benchGrid"></div></div></details>
+
+<div id="status" role="status" aria-live="polite"></div>
+<section class="stats" id="stats" hidden></section>
+
+<div class="toolbar">
+  <input type="search" id="q" placeholder="Search coin…" aria-label="Search coin">
+  <label class="chk"><input type="checkbox" id="hideNoMin"> Hide coins without a known minimum</label>
+</div>
+
+<div class="card wrap">
+<table>
+  <thead><tr id="head"></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+</div>
+
+<p class="note">Figures come from unMineable's public simulator: 1-day estimate at current prices, 1% fee included, mined coins auto-converted to the payout coin. The price shown is the one the simulator used. Type your own price into a row to override it. Estimates only; real earnings change with difficulty and conversion spread. Open this file by double-clicking it on your computer.</p>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const API = "https://api.unmineable.dev/v1";
+const COLS = [
+  ["symbol","Coin"],["coinsDay","Coins / day"],["price","Price (USD)"],["usd","USD / day"],
+  ["month","USD / month"],["min","Min cashout"],["minUsd","Min in USD"],["days","Days to reach"]
+];
+const algoValue=()=>($("algoSel").value==="__other"?$("algo").value:$("algoSel").value).trim().toLowerCase();
+function setAlgo(v){
+  const sel=$("algoSel");
+  if([...sel.options].some(o=>o.value===v&&v!=="__other"))sel.value=v;
+  else if(v){sel.value="__other";$("algo").value=v;}
+  $("algo").hidden=sel.value!=="__other";
+}
+let coins=[], results=[], overrides={}, minPay={}, sort={key:"usd",dir:"descending"}, running=false, timer=null;
+
+const fmt=(n,d=4)=>(n==null||!isFinite(n))?"–":Number(n).toLocaleString(undefined,{maximumFractionDigits:d});
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const setStatus=(m,e)=>{const s=$("status");s.textContent=m;s.className=e?"err":"";};
+const G=(s)=>s.split(",").map(x=>{const i=x.lastIndexOf(" ");return[x.slice(0,i).trim(),parseFloat(x.slice(i+1))];});
+const ETH=G("RTX 3090 120,RTX 3080 95,RTX 3070 61,RTX 3060 Ti 60,RTX 3060 44,RTX 2080 Ti 55,RTX 2070 Super 40,GTX 1660 Super 31,GTX 1070 30,GTX 1060 6GB 22,RX 6900 XT 64,RX 6800 XT 64,RX 6700 XT 47,RX 6600 XT 32,RX 5700 XT 54,RX 580 8GB 30");
+const ALGOS=[
+ {v:"pearlpow",n:"PearlPoW (Pearl)",u:"TH/s",m:"1e12",src:"Measured pool-accepted rates from Pearl miner release notes (PeakMiner, AlphaMiner, FlashMiner). Tuned rates; Nvidia RTX 20 series or newer only.",
+  gpus:G("RTX 5090 355,RTX 4090 300,RTX 5080 204,RTX 4080 179,RTX 5070 Ti 174,RTX 4070 Ti 147,RTX 3090 Ti 139,RTX 3080 Ti 128,RTX 3080 100,RTX 4060 Ti 80,RTX 3070 74,RTX 5060 70,RTX 3060 Ti 67,RTX 3060 41.6,RTX 2060 Super 28.8")},
+ {v:"etchash",n:"Etchash (ETC)",u:"MH/s",m:"1e6",src:"Approximate typical community figures, not measured by me. Real rates depend on memory overclock and drivers.",gpus:ETH},
+ {v:"ethash",n:"Ethash (ETHW and others)",u:"MH/s",m:"1e6",src:"Approximate typical community figures, not measured by me. Real rates depend on memory overclock and drivers.",gpus:ETH},
+ {v:"kawpow",n:"KawPow (Ravencoin)",u:"MH/s",m:"1e6",src:"Approximate typical community figures, not measured by me. Real rates depend on overclock, miner and drivers.",
+  gpus:G("RTX 3090 58,RTX 3080 48,RTX 3070 31,RTX 3060 Ti 29,RTX 3060 22,RTX 2080 Ti 33,GTX 1660 Super 16,GTX 1070 16,GTX 1060 6GB 12,RX 6800 XT 40,RX 5700 XT 27,RX 580 8GB 13")},
+ {v:"autolykos",n:"Autolykos (Ergo)"},{v:"beamhash",n:"BeamHash"},{v:"octopus",n:"Octopus (Conflux)"},
+ {v:"firopow",n:"FiroPow (Firo)"},{v:"kheavyhash",n:"KHeavyHash (Kaspa)"},{v:"fishhash",n:"FishHash (Ironfish)"},
+ {v:"nexapow",n:"NexaPoW (Nexa)"},{v:"karlsenhash",n:"KarlsenHash (Karlsen)"},{v:"xelishashv2",n:"XelisHashV2 (Xelis)"},
+ {v:"zelhash",n:"ZelHash (Flux)"},{v:"zhash",n:"ZHash"},{v:"dynexsolve",n:"DynexSolve (Dynex)"},
+ {v:"randomx",n:"RandomX (Monero, CPU)"},{v:"ghostrider",n:"Ghostrider (Raptoreum, CPU)"}
+];
+$("algoSel").innerHTML=ALGOS.map(a=>`<option value="${a.v}">${a.n}</option>`).join("")+'<option value="__other">Other…</option>';
+const save=()=>{try{localStorage.setItem("umcalc",JSON.stringify({hr:$("hr").value,unit:$("unit").value,algo:algoValue()}));}catch(e){}};
+(()=>{try{const v=JSON.parse(localStorage.getItem("umcalc")||"{}");if(v.hr)$("hr").value=v.hr;if(v.unit)$("unit").value=v.unit;if(v.algo)setAlgo(v.algo);}catch(e){}})();
+
+$("head").innerHTML=COLS.map(([k,l])=>`<th scope="col" data-k="${k}"><button type="button">${l}</button></th>`).join("");
+
+async function pool(items,n,fn){
+  const out=new Array(items.length);let i=0;
+  await Promise.all(Array.from({length:Math.min(n,items.length)},async()=>{while(i<items.length){const k=i++;out[k]=await fn(items[k],k);}}));
+  return out;
+}
+function findNum(o,re,path=""){
+  if(o==null||typeof o!=="object")return null;
+  for(const[k,v]of Object.entries(o))if(re.test(k)&&v!=null&&typeof v!=="object"&&!isNaN(parseFloat(v)))return{v:parseFloat(v),path:path+"/"+k};
+  for(const[k,v]of Object.entries(o)){const f=findNum(v,re,path+"/"+k);if(f)return f;}
+  return null;
+}
+function collectCoins(d){
+  let list=[];
+  if(Array.isArray(d))list=d;
+  else if(d&&typeof d==="object"){const a=Object.values(d).find(v=>Array.isArray(v)&&v.length&&typeof v[0]==="object");list=a||[];}
+  return list.map(c=>({symbol:(c.symbol||c.coin||"").toString().toUpperCase(),name:c.name||"",logo:c.logo||"",delisted:c.delisted}))
+             .filter(c=>c.symbol&&!c.delisted);
+}
+
+async function loadCoins(){
+  setStatus("Loading coin list…");
+  const r=await fetch(API+"/meta/coin?compact=true");const t=await r.text();let j;
+  try{j=JSON.parse(t);}catch(e){throw new Error("coin list was not JSON (HTTP "+r.status+")");}
+  coins=collectCoins(j.data??j.coins??j);
+  if(!coins.length)throw new Error("no coins found in the response");
+  setStatus("");
+}
+
+async function simulate(coin,algorithm,hs){
+  const r=await fetch(API+"/simulator",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({mode:"advanced",coin,algorithm,hashrate_hs:String(hs),scenario_set:"default",referral_discount:false})});
+  const t=await r.text();let j;try{j=JSON.parse(t);}catch(e){return{err:"HTTP "+r.status+": "+t.slice(0,120)};}
+  if(!r.ok||j.error||j.success===false)return{err:(j.error&&(j.error.message||j.error))||j.message||("HTTP "+r.status)};
+  const ac=j.data?.algorithms?.[0]?.windows?.["1d"]?.scenarios?.spot_now?.auto_convert;
+  return{coinsDay:ac?parseFloat(ac.payout_coin):null,usdDay:ac?parseFloat(ac.usdt):null};
+}
+
+const curAlgo=()=>ALGOS.find(a=>a.v===algoValue());
+function markGpu(){document.querySelectorAll(".gpu").forEach(b=>b.classList.toggle("on",b.dataset.i===$("gpuSel").value));}
+function fillGpuUI(){
+  const a=curAlgo(),has=a&&a.gpus,sel=$("gpuSel");
+  sel.disabled=!has;
+  sel.innerHTML=has?'<option value="">Manual hash rate</option>'+a.gpus.map((g,i)=>`<option value="${i}">${esc(g[0])} · ${g[1]} ${a.u}</option>`).join(""):'<option value="">No benchmarks yet</option>';
+  $("benchTitle").textContent=has?`GPU benchmarks · ${a.n} (${a.gpus.length} cards) – click one to fill your hash rate`:"GPU benchmarks";
+  $("benchNote").textContent=has?a.src:"I have no reliable benchmark figures for this algorithm yet. Enter your own hash rate (from your miner's output) above.";
+  $("benchGrid").innerHTML=has?a.gpus.map((g,i)=>`<button type="button" class="gpu" data-i="${i}"><span>${esc(g[0])}</span><b>${g[1]} ${a.u}</b></button>`).join(""):"";
+}
+function applyGpu(){
+  const a=curAlgo(),i=$("gpuSel").value;if(!a||!a.gpus||i==="")return markGpu();
+  const n=Math.max(1,parseInt($("qty").value)||1);
+  $("hr").value=+(a.gpus[i][1]*n).toFixed(3);$("unit").value=a.m;markGpu();save();
+}
+const THRESH=/threshold|minimum|min_?(payout|payment|withdraw|cashout|pay)/i;
+async function loadMinPay(symbols){
+  await pool(symbols.filter(s=>!(s in minPay)),8,async sym=>{
+    try{
+      const j=await(await fetch(API+"/meta/coin/"+encodeURIComponent(sym))).json();
+      const f=findNum(j.data??j,THRESH);minPay[sym]=f?f.v:null;
+    }catch(e){minPay[sym]=null;}
+  });
+}
+
+async function calculate(){
+  if(running)return;
+  const hr=parseFloat($("hr").value);
+  if(!(hr>0))return setStatus("Enter a hash rate greater than 0.",true);
+  const algorithm=algoValue();
+  if(!algorithm)return setStatus("Enter an algorithm.",true);
+  running=true;$("go").disabled=true;$("dot").classList.add("on");save();
+  const hs=hr*parseFloat($("unit").value);
+  try{
+    if(!coins.length)await loadCoins();
+    if(!results.length)$("rows").innerHTML=Array(6).fill('<tr class="skel">'+'<td></td>'.repeat(8)+'</tr>').join("");
+    let done=0;setStatus(`Checking ${coins.length} payout coins…`);
+    const sims=await pool(coins,8,async c=>{const r=await simulate(c.symbol,algorithm,hs).catch(e=>({err:String(e)}));if(++done%10===0)setStatus(`Checked ${done} of ${coins.length} coins…`);return r;});
+    results=coins.map((c,i)=>({...c,...sims[i]})).filter(r=>!r.err&&r.coinsDay!=null);
+    if(!results.length){$("rows").innerHTML="";$("stats").hidden=true;
+      return setStatus("No payout coin accepted this algorithm. Check the algorithm name.",true);}
+    setStatus("Loading minimum cashout amounts…");
+    await loadMinPay(results.map(r=>r.symbol));
+    render();
+    setStatus(`Updated ${new Date().toLocaleTimeString()} · ${results.length} payout coins`);
+  }catch(e){
+    $("rows").innerHTML="";
+    setStatus("Request failed: "+e.message+". Open this file locally and check your connection.",true);
+  }finally{running=false;$("go").disabled=false;$("dot").classList.toggle("on",$("auto").checked);}
+}
+
+function logo(c,cls=""){
+  const ini=esc(c.symbol.slice(0,3));
+  return c.logo?`<img class="logo ${cls}" src="${esc(c.logo)}" alt="" width="34" height="34" loading="lazy" decoding="async" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:this.className,textContent:'${ini}'}))">`
+               :`<span class="logo ${cls}">${ini}</span>`;
+}
+function view(){
+  const q=$("q").value.trim().toLowerCase(),hide=$("hideNoMin").checked;
+  let rows=results.map(r=>{
+    const implied=(r.usdDay!=null&&r.coinsDay)?r.usdDay/r.coinsDay:null;
+    const ov=overrides[r.symbol];
+    const price=ov??implied,usd=ov!=null?r.coinsDay*ov:r.usdDay,min=minPay[r.symbol]??null;
+    return{...r,price,usd,month:usd!=null?usd*30:null,min,minUsd:(min!=null&&price!=null)?min*price:null,days:(min!=null&&r.coinsDay>0)?min/r.coinsDay:null};
+  });
+  if(q)rows=rows.filter(r=>r.symbol.toLowerCase().includes(q)||r.name.toLowerCase().includes(q));
+  if(hide)rows=rows.filter(r=>r.min!=null);
+  const k=sort.key,dir=sort.dir==="ascending"?1:-1;
+  rows.sort((a,b)=>{
+    const x=a[k],y=b[k];if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;
+    return(typeof x==="string"?x.localeCompare(y):x-y)*dir;
+  });
+  return rows;
+}
+function render(){
+  document.querySelectorAll("#head th").forEach(th=>{th.removeAttribute("aria-sort");if(th.dataset.k===sort.key)th.setAttribute("aria-sort",sort.dir);});
+  const all=view();
+  const best=[...all].filter(r=>r.usd!=null).sort((a,b)=>b.usd-a.usd)[0];
+  const fast=[...all].filter(r=>r.days!=null).sort((a,b)=>a.days-b.days)[0];
+  $("stats").hidden=!best;
+  if(best)$("stats").innerHTML=
+    `<div class="card stat">${logo(best,"")}<div><small>Best earning</small><b>${esc(best.symbol)} · $${fmt(best.usd,3)}/day</b><br><i class="num">$${fmt(best.month,2)} per month</i></div></div>`+
+    (fast?`<div class="card stat">${logo(fast,"")}<div><small>Fastest to cash out</small><b>${esc(fast.symbol)} · ${fmt(fast.days,1)} days</b><br><i class="num">minimum ${fmt(fast.min,6)} ${esc(fast.symbol)}</i></div></div>`:"")+
+    `<div class="card stat"><div><small>Payout coins</small><b>${results.length}</b><br><i>at ${fmt(parseFloat($("hr").value),2)} ${$("unit").selectedOptions[0].text}</i></div></div>`;
+  $("rows").innerHTML=all.length?all.map(r=>{
+    const isBest=best&&r.symbol===best.symbol;
+    return`<tr class="${isBest?"best":""}"><td><div class="coin">${logo(r)}<div><b>${esc(r.symbol)}${isBest?'<span class="tag">BEST</span>':""}</b><span>${esc(r.name)}</span></div></div></td>`+
+    `<td class="num">${fmt(r.coinsDay,8)}</td>`+
+    `<td><input class="num" data-sym="${esc(r.symbol)}" value="${r.price!=null?+r.price.toPrecision(6):""}" placeholder="–" inputmode="decimal" aria-label="Price of ${esc(r.symbol)} in USD"></td>`+
+    `<td class="num usd">$${fmt(r.usd,4)}</td><td class="num">$${fmt(r.month,2)}</td>`+
+    `<td class="num">${fmt(r.min,8)}</td><td class="num">${r.minUsd!=null?"$"+fmt(r.minUsd,2):"–"}</td><td class="num">${fmt(r.days,1)}</td></tr>`;
+  }).join(""):`<tr><td colspan="8" class="empty">No coins match.</td></tr>`;
+}
+
+$("head").addEventListener("click",e=>{
+  const th=e.target.closest("th");if(!th||!results.length)return;
+  const k=th.dataset.k;sort=sort.key===k?{key:k,dir:sort.dir==="descending"?"ascending":"descending"}:{key:k,dir:k==="symbol"||k==="days"||k==="min"||k==="minUsd"?"ascending":"descending"};render();
+});
+$("rows").addEventListener("change",e=>{
+  const s=e.target.dataset.sym;if(!s)return;
+  const v=parseFloat(e.target.value);if(isNaN(v))delete overrides[s];else overrides[s]=v;render();
+});
+let qt;$("q").addEventListener("input",()=>{clearTimeout(qt);qt=setTimeout(()=>results.length&&render(),120);});
+$("hideNoMin").addEventListener("change",()=>results.length&&render());
+$("go").addEventListener("click",calculate);
+["hr","algo"].forEach(id=>$(id).addEventListener("keydown",e=>{if(e.key==="Enter")calculate();}));
+$("algoSel").addEventListener("change",()=>{const o=$("algoSel").value==="__other";$("algo").hidden=!o;if(o)$("algo").focus();fillGpuUI();});
+$("algo").addEventListener("input",fillGpuUI);
+$("gpuSel").addEventListener("change",applyGpu);
+$("qty").addEventListener("input",()=>{if($("gpuSel").value!=="")applyGpu();});
+["hr","unit"].forEach(id=>$(id).addEventListener("input",()=>{$("gpuSel").value="";markGpu();}));
+$("benchGrid").addEventListener("click",e=>{const b=e.target.closest(".gpu");if(!b)return;$("gpuSel").value=b.dataset.i;applyGpu();});
+$("auto").addEventListener("change",()=>{clearInterval(timer);$("dot").classList.toggle("on",$("auto").checked);if($("auto").checked)timer=setInterval(()=>{if(!document.hidden)calculate();},120000);});
+$("rows").innerHTML='<tr><td colspan="8" class="empty">Enter your hash rate and press Calculate.</td></tr>';
+fillGpuUI();
+loadCoins().catch(e=>setStatus("Could not load unMineable: "+e.message+". Open this file locally and check your connection.",true));
+</script>
+</body>
+</html>
