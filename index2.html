@@ -64,6 +64,10 @@ tbody tr:last-child td{border-bottom:0}
 .usd{font-weight:700}
 td input{width:96px;text-align:right;padding:5px 8px;border:1px solid transparent;border-radius:8px;background:transparent;font:inherit;font-variant-numeric:tabular-nums}
 td input:hover,td input:focus{border-color:var(--line);background:var(--raised)}
+.promo{margin-top:14px;padding:14px 18px;display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;border-left:4px solid var(--accent)}
+.promo b{display:block}.promo span{color:var(--muted);font-size:.88rem;display:block;max-width:60ch}
+.promo-act{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+a.btn{text-decoration:none;display:inline-block}
 .bench{margin-top:14px;padding:0}
 .bench summary{cursor:pointer;padding:14px 18px;font-weight:600}
 .benchbody{padding:0 18px 16px}
@@ -117,6 +121,17 @@ td input:hover,td input:focus{border-color:var(--line);background:var(--raised)}
 <details class="card bench" id="benchBox"><summary id="benchTitle">GPU benchmarks</summary>
   <div class="benchbody"><p id="benchNote"></p><div class="benchgrid" id="benchGrid"></div></div></details>
 
+<aside class="card promo" aria-label="Referral">
+  <div>
+    <b>New to unMineable?</b>
+    <span>Sign up through this link to start mining. Referred accounts can get a reduced fee, and it supports this free tool at no extra cost to you. Check unMineable for the current rate.</span>
+  </div>
+  <div class="promo-act">
+    <a class="btn" href="https://unmineable.com/?ref=U-OMZN54" target="_blank" rel="noopener sponsored">Join unMineable</a>
+    <label class="chk"><input type="checkbox" id="refDisc"> Include referral fee discount in estimates</label>
+  </div>
+</aside>
+
 <div id="status" role="status" aria-live="polite"></div>
 <section class="stats" id="stats" hidden></section>
 
@@ -132,7 +147,7 @@ td input:hover,td input:focus{border-color:var(--line);background:var(--raised)}
 </table>
 </div>
 
-<p class="note">Figures come from unMineable's public simulator: 1-day estimate at current prices, 1% fee included, mined coins auto-converted to the payout coin. The price shown is the one the simulator used. Type your own price into a row to override it. Estimates only; real earnings change with difficulty and conversion spread. Open this file by double-clicking it on your computer.</p>
+<p class="note">Referral disclosure: the Join unMineable links on this page are referral links. Figures come from unMineable's public simulator: 1-day estimate at current prices, 1% fee included, mined coins auto-converted to the payout coin. The price shown is the one the simulator used. Type your own price into a row to override it. Estimates only; real earnings change with difficulty and conversion spread. Open this file by double-clicking it on your computer.</p>
 </main>
 
 <script>
@@ -205,7 +220,7 @@ async function loadCoins(){
 
 async function simulate(coin,algorithm,hs){
   const r=await fetch(API+"/simulator",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({mode:"advanced",coin,algorithm,hashrate_hs:String(hs),scenario_set:"default",referral_discount:false})});
+    body:JSON.stringify({mode:"advanced",coin,algorithm,hashrate_hs:String(hs),scenario_set:"default",referral_discount:$("refDisc").checked})});
   const t=await r.text();let j;try{j=JSON.parse(t);}catch(e){return{err:"HTTP "+r.status+": "+t.slice(0,120)};}
   if(!r.ok||j.error||j.success===false)return{err:(j.error&&(j.error.message||j.error))||j.message||("HTTP "+r.status)};
   const ac=j.data?.algorithms?.[0]?.windows?.["1d"]?.scenarios?.spot_now?.auto_convert;
