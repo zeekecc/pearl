@@ -278,8 +278,10 @@ async function loadMinPay(symbols){
   });
   try{localStorage.setItem("umin",JSON.stringify({t:Date.now(),v:minPay}));}catch(e){}
 }
-async function calculate(){
-  if(running)return;
+let pendingOpts=null,rt;
+function autoRecalc(){clearTimeout(rt);rt=setTimeout(()=>{if(results.length)calculate({reuse:true});},450);}
+async function calculate(opts){
+  if(running){pendingOpts=opts||{};return;}
   const hr=parseFloat($("hr").value);
   if(!(hr>0))return setStatus("Enter a hash rate greater than 0.",true);
   const algorithm=algoValue();
@@ -291,7 +293,7 @@ async function calculate(){
     if(!coins.length)await loadCoins();
     let sims,note="";
     const c=simCache;
-    if(c&&c.key===key&&Date.now()-c.time<60000&&hs/c.hs>1e-3&&hs/c.hs<1e3){
+    if(c&&c.key===key&&Date.now()-c.time<(opts&&opts.reuse?600000:60000)&&hs/c.hs>1e-3&&hs/c.hs<1e3){
       // earnings scale in direct proportion to hash rate, so reuse the last answer instead of asking unMineable again
       const k=hs/c.hs;
       sims=c.sims.map(s=>s.err?s:{coinsDay:s.coinsDay*k,usdDay:s.usdDay*k});
@@ -320,7 +322,7 @@ async function calculate(){
   }catch(e){
     if(results.length)render();else $("rows").innerHTML="";
     setStatus("Request failed: "+e.message+". Check your connection and press Calculate again.",true);
-  }finally{running=false;$("go").disabled=false;$("dot").classList.toggle("on",$("auto").checked);}
+  }finally{running=false;$("go").disabled=false;$("dot").classList.toggle("on",$("auto").checked);if(pendingOpts){const o=pendingOpts;pendingOpts=null;setTimeout(()=>calculate(o),0);}}
 }
 
 function logo(c,cls=""){
@@ -345,6 +347,11 @@ function view(){
   });
   return rows;
 }
+function rigText(){
+  const a=curAlgo(),i=$("gpuSel").value;
+  if(a&&a.gpus&&i!=="")return (parseInt($("qty").value)||1)+" × "+esc(a.gpus[i][0]);
+  return "custom hash rate";
+}
 function render(){
   document.querySelectorAll("#head th").forEach(th=>{th.removeAttribute("aria-sort");if(th.dataset.k===sort.key)th.setAttribute("aria-sort",sort.dir);});
   const all=view();
@@ -354,7 +361,7 @@ function render(){
   if(best)$("stats").innerHTML=
     `<div class="card stat">${logo(best,"")}<div><small>Best earning</small><b>${esc(best.symbol)} · $${fmt(best.usd,3)}/day</b><br><i class="num">$${fmt(best.month,2)} per month</i></div></div>`+
     (fast?`<div class="card stat">${logo(fast,"")}<div><small>Fastest to cash out</small><b>${esc(fast.symbol)} · ${fmt(fast.days,1)} days</b><br><i class="num">minimum ${fmt(fast.min,6)} ${esc(fast.symbol)}</i></div></div>`:"")+
-    `<div class="card stat"><div><small>Payout coins</small><b>${results.length}</b><br><i>at ${fmt(parseFloat($("hr").value),2)} ${$("unit").selectedOptions[0].text}</i></div></div>`;
+    `<div class="card stat"><div><small>Your rig</small><b>${fmt(parseFloat($("hr").value),2)} ${$("unit").selectedOptions[0].text}</b><br><i>${rigText()} · ${results.length} payout coins</i></div></div>`;
   $("rows").innerHTML=all.length?all.map(r=>{
     const isBest=best&&r.symbol===best.symbol;
     return`<tr class="${isBest?"best":""}"><td><div class="coin">${logo(r)}<div><b>${esc(r.symbol)}${isBest?'<span class="tag">BEST</span>':""}</b><span>${esc(r.name)}</span></div></div></td>`+
@@ -379,10 +386,10 @@ $("go").addEventListener("click",()=>calculate());
 ["hr","algo"].forEach(id=>$(id).addEventListener("keydown",e=>{if(e.key==="Enter")calculate();}));
 $("algoSel").addEventListener("change",()=>{const o=$("algoSel").value==="__other";$("algo").hidden=!o;if(o)$("algo").focus();fillGpuUI();});
 $("algo").addEventListener("input",fillGpuUI);
-$("gpuSel").addEventListener("change",applyGpu);
-$("qty").addEventListener("input",()=>{if($("gpuSel").value!=="")applyGpu();});
-["hr","unit"].forEach(id=>$(id).addEventListener("input",()=>{$("gpuSel").value="";markGpu();}));
-$("benchGrid").addEventListener("click",e=>{const b=e.target.closest(".gpu");if(!b)return;$("gpuSel").value=b.dataset.i;applyGpu();});
+$("gpuSel").addEventListener("change",()=>{applyGpu();autoRecalc();});
+$("qty").addEventListener("input",()=>{if($("gpuSel").value!==""){applyGpu();autoRecalc();}});
+["hr","unit"].forEach(id=>$(id).addEventListener("input",()=>{$("gpuSel").value="";markGpu();autoRecalc();}));
+$("benchGrid").addEventListener("click",e=>{const b=e.target.closest(".gpu");if(!b)return;$("gpuSel").value=b.dataset.i;applyGpu();autoRecalc();});
 $("auto").addEventListener("change",()=>{clearInterval(timer);$("dot").classList.toggle("on",$("auto").checked);if($("auto").checked)timer=setInterval(()=>{if(!document.hidden)calculate();},120000);});
 $("rows").innerHTML='<tr><td colspan="8" class="empty">Enter your hash rate and press Calculate.</td></tr>';
 fillGpuUI();
