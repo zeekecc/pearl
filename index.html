@@ -147,7 +147,7 @@ a.btn{text-decoration:none;display:inline-block}
 </table>
 </div>
 
-<p class="note">Referral disclosure: the Join unMineable links on this page are referral links. Figures come from unMineable's public simulator: 1-day estimate at current prices, 1% fee included, mined coins auto-converted to the payout coin. The price shown is the one the simulator used. Type your own price into a row to override it. Estimates only; real earnings change with difficulty and conversion spread. Open this file by double-clicking it on your computer.</p>
+<p class="note">Referral disclosure: the Join unMineable links on this page are referral links. Figures come from unMineable's public simulator: a 1-day estimate at current prices with unMineable's standard fee (reduced if you tick the referral option), with mined coins auto-converted to the payout coin. The price shown is the one the simulator used. Type your own price into a row to override it. Estimates only; real earnings change with difficulty and conversion spread.</p>
 </main>
 
 <script>
@@ -205,7 +205,7 @@ function collectCoins(d){
   let list=[];
   if(Array.isArray(d))list=d;
   else if(d&&typeof d==="object"){const a=Object.values(d).find(v=>Array.isArray(v)&&v.length&&typeof v[0]==="object");list=a||[];}
-  return list.map(c=>({symbol:(c.symbol||c.coin||"").toString().toUpperCase(),name:c.name||"",logo:c.logo||"",delisted:c.delisted}))
+  return list.map(c=>({symbol:(c.symbol||c.coin||"").toString().toUpperCase(),name:c.name||"",logo:c.logo||"",canon:(c.coin_canonical||"").toString().toUpperCase(),net:(c.network_canonical||"").toString().toUpperCase(),delisted:c.delisted}))
              .filter(c=>c.symbol&&!c.delisted);
 }
 
@@ -244,14 +244,23 @@ function applyGpu(){
 }
 const THRESH=/threshold|minimum|min_?(payout|payment|withdraw|cashout|pay)/i;
 async function loadMinPay(symbols){
-  await pool(symbols.filter(s=>!(s in minPay)),8,async sym=>{
-    try{
-      const j=await(await fetch(API+"/meta/coin/"+encodeURIComponent(sym))).json();
-      const f=findNum(j.data??j,THRESH);minPay[sym]=f?f.v:null;
-    }catch(e){minPay[sym]=null;}
+  const need=symbols.filter(x=>!(x in minPay));if(!need.length)return;
+  const info=Object.fromEntries(coins.map(c=>[c.symbol,c]));
+  const pick=j=>{const f=findNum(j?.data??j,THRESH);return f?f.v:null;};
+  // 1) full coin list may carry thresholds for every coin in one request
+  try{
+    const j=await(await fetch(API+"/meta/coin")).json();
+    const arr=Array.isArray(j.data)?j.data:Object.values(j.data||{}).find(Array.isArray)||[];
+    arr.forEach(c=>{const sym=(c.symbol||"").toString().toUpperCase();const v=pick(c);if(sym&&v!=null&&!(sym in minPay))minPay[sym]=v;});
+  }catch(e){}
+  // 2) per-coin detail, trying the plain symbol, then the canonical name, then the network
+  const get=async n=>{try{const r=await fetch(API+"/meta/coin/"+encodeURIComponent(n));if(!r.ok)return null;return pick(await r.json());}catch(e){return null;}};
+  await pool(need.filter(x=>minPay[x]==null),8,async sym=>{
+    const c=info[sym]||{};
+    for(const n of [...new Set([sym,c.canon,c.net].filter(Boolean))]){const v=await get(n);if(v!=null){minPay[sym]=v;return;}}
+    minPay[sym]=null;
   });
 }
-
 async function calculate(){
   if(running)return;
   const hr=parseFloat($("hr").value);
@@ -316,7 +325,7 @@ function render(){
     `<td class="num">${fmt(r.coinsDay,8)}</td>`+
     `<td><input class="num" data-sym="${esc(r.symbol)}" value="${r.price!=null?+r.price.toPrecision(6):""}" placeholder="–" inputmode="decimal" aria-label="Price of ${esc(r.symbol)} in USD"></td>`+
     `<td class="num usd">$${fmt(r.usd,4)}</td><td class="num">$${fmt(r.month,2)}</td>`+
-    `<td class="num">${fmt(r.min,8)}</td><td class="num">${r.minUsd!=null?"$"+fmt(r.minUsd,2):"–"}</td><td class="num">${fmt(r.days,1)}</td></tr>`;
+    `<td class="num">${r.min==null?"n/a":fmt(r.min,8)}</td><td class="num">${r.min==null?"n/a":(r.minUsd!=null?"$"+fmt(r.minUsd,2):"–")}</td><td class="num">${r.min==null?"n/a":fmt(r.days,1)}</td></tr>`;
   }).join(""):`<tr><td colspan="8" class="empty">No coins match.</td></tr>`;
 }
 
