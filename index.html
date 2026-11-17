@@ -96,7 +96,7 @@ a.btn{text-decoration:none;display:inline-block}
 </header>
 
 <section class="card controls" aria-label="Settings">
-  <label>Your hash rate
+  <label>Hash rate per GPU
     <span class="row">
       <input id="hr" type="number" min="0" step="any" value="47" inputmode="decimal">
       <select id="unit" aria-label="Hash rate unit">
@@ -109,10 +109,10 @@ a.btn{text-decoration:none;display:inline-block}
     <select id="algoSel" aria-label="Algorithm"></select>
     <input id="algo" type="text" placeholder="algorithm name" autocomplete="off" spellcheck="false" hidden>
   </label>
-  <label>GPU benchmark
+  <label>GPU benchmark · quantity
     <span class="row">
       <select id="gpuSel" aria-label="GPU model"></select>
-      <input id="qty" type="number" min="1" step="1" value="1" aria-label="Number of GPUs" title="Number of GPUs" style="width:76px">
+      <input id="qty" type="number" min="1" step="1" value="1" aria-label="Number of GPUs" title="How many GPUs. Multiplies the hash rate" style="width:76px">
     </span>
   </label>
   <button class="btn" id="go">Calculate</button>
@@ -187,8 +187,8 @@ const ALGOS=[
  {v:"randomx",n:"RandomX (Monero, CPU)"},{v:"ghostrider",n:"Ghostrider (Raptoreum, CPU)"}
 ];
 $("algoSel").innerHTML=ALGOS.map(a=>`<option value="${a.v}">${a.n}</option>`).join("")+'<option value="__other">Other…</option>';
-const save=()=>{try{localStorage.setItem("umcalc",JSON.stringify({hr:$("hr").value,unit:$("unit").value,algo:algoValue()}));}catch(e){}};
-(()=>{try{const v=JSON.parse(localStorage.getItem("umcalc")||"{}");if(v.hr)$("hr").value=v.hr;if(v.unit)$("unit").value=v.unit;if(v.algo)setAlgo(v.algo);}catch(e){}})();
+const save=()=>{try{localStorage.setItem("umcalc",JSON.stringify({hr:$("hr").value,unit:$("unit").value,qty:$("qty").value,algo:algoValue()}));}catch(e){}};
+(()=>{try{const v=JSON.parse(localStorage.getItem("umcalc")||"{}");if(v.hr)$("hr").value=v.hr;if(v.unit)$("unit").value=v.unit;if(v.qty)$("qty").value=v.qty;if(v.algo)setAlgo(v.algo);}catch(e){}})();
 
 $("head").innerHTML=COLS.map(([k,l])=>`<th scope="col" data-k="${k}"><button type="button">${l}</button></th>`).join("");
 
@@ -251,8 +251,7 @@ function fillGpuUI(){
 }
 function applyGpu(){
   const a=curAlgo(),i=$("gpuSel").value;if(!a||!a.gpus||i==="")return markGpu();
-  const n=Math.max(1,parseInt($("qty").value)||1);
-  $("hr").value=+(a.gpus[i][1]*n).toFixed(3);$("unit").value=a.m;markGpu();save();
+  $("hr").value=a.gpus[i][1];$("unit").value=a.m;markGpu();save();
 }
 const THRESH=/threshold|minimum|min_?(payout|payment|withdraw|cashout|pay)/i;
 async function loadMinPay(symbols){
@@ -287,7 +286,8 @@ async function calculate(opts){
   const algorithm=algoValue();
   if(!algorithm)return setStatus("Enter an algorithm.",true);
   running=true;$("go").disabled=true;$("dot").classList.add("on");save();
-  const hs=Math.round(hr*parseFloat($("unit").value));
+  const qty=Math.max(1,parseInt($("qty").value)||1);
+  const hs=Math.round(hr*qty*parseFloat($("unit").value));
   const key=algorithm+"|"+$("refDisc").checked;
   try{
     if(!coins.length)await loadCoins();
@@ -349,8 +349,9 @@ function view(){
 }
 function rigText(){
   const a=curAlgo(),i=$("gpuSel").value;
-  if(a&&a.gpus&&i!=="")return (parseInt($("qty").value)||1)+" × "+esc(a.gpus[i][0]);
-  return "custom hash rate";
+  const n=Math.max(1,parseInt($("qty").value)||1);
+  if(a&&a.gpus&&i!=="")return n+" × "+esc(a.gpus[i][0]);
+  return n+" × "+fmt(parseFloat($("hr").value),3)+" "+$("unit").selectedOptions[0].text;
 }
 function render(){
   document.querySelectorAll("#head th").forEach(th=>{th.removeAttribute("aria-sort");if(th.dataset.k===sort.key)th.setAttribute("aria-sort",sort.dir);});
@@ -361,7 +362,7 @@ function render(){
   if(best)$("stats").innerHTML=
     `<div class="card stat">${logo(best,"")}<div><small>Best earning</small><b>${esc(best.symbol)} · $${fmt(best.usd,3)}/day</b><br><i class="num">$${fmt(best.month,2)} per month</i></div></div>`+
     (fast?`<div class="card stat">${logo(fast,"")}<div><small>Fastest to cash out</small><b>${esc(fast.symbol)} · ${fmt(fast.days,1)} days</b><br><i class="num">minimum ${fmt(fast.min,6)} ${esc(fast.symbol)}</i></div></div>`:"")+
-    `<div class="card stat"><div><small>Your rig</small><b>${fmt(parseFloat($("hr").value),2)} ${$("unit").selectedOptions[0].text}</b><br><i>${rigText()} · ${results.length} payout coins</i></div></div>`;
+    `<div class="card stat"><div><small>Your rig</small><b>${fmt(parseFloat($("hr").value)*Math.max(1,parseInt($("qty").value)||1),2)} ${$("unit").selectedOptions[0].text}</b><br><i>${rigText()} · ${results.length} payout coins</i></div></div>`;
   $("rows").innerHTML=all.length?all.map(r=>{
     const isBest=best&&r.symbol===best.symbol;
     return`<tr class="${isBest?"best":""}"><td><div class="coin">${logo(r)}<div><b>${esc(r.symbol)}${isBest?'<span class="tag">BEST</span>':""}</b><span>${esc(r.name)}</span></div></div></td>`+
@@ -387,7 +388,7 @@ $("go").addEventListener("click",()=>calculate());
 $("algoSel").addEventListener("change",()=>{const o=$("algoSel").value==="__other";$("algo").hidden=!o;if(o)$("algo").focus();fillGpuUI();});
 $("algo").addEventListener("input",fillGpuUI);
 $("gpuSel").addEventListener("change",()=>{applyGpu();autoRecalc();});
-$("qty").addEventListener("input",()=>{if($("gpuSel").value!==""){applyGpu();autoRecalc();}});
+$("qty").addEventListener("input",()=>{save();autoRecalc();});
 ["hr","unit"].forEach(id=>$(id).addEventListener("input",()=>{$("gpuSel").value="";markGpu();autoRecalc();}));
 $("benchGrid").addEventListener("click",e=>{const b=e.target.closest(".gpu");if(!b)return;$("gpuSel").value=b.dataset.i;applyGpu();autoRecalc();});
 $("auto").addEventListener("change",()=>{clearInterval(timer);$("dot").classList.toggle("on",$("auto").checked);if($("auto").checked)timer=setInterval(()=>{if(!document.hidden)calculate();},120000);});
