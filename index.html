@@ -164,11 +164,13 @@ function setAlgo(v){
   else if(v){sel.value="__other";$("algo").value=v;}
   $("algo").hidden=sel.value!=="__other";
 }
-let coins=[], results=[], overrides={}, minPay={}, sort={key:"usd",dir:"descending"}, running=false, timer=null;
+let coins=[], results=[], overrides={}, minPay={}, sort={key:"usd",dir:"descending"}, running=false, timer=null, simCache=null;
+try{const m=JSON.parse(localStorage.getItem("umin")||"null");if(m&&m.v&&Date.now()-m.t<864e5)minPay=m.v;}catch(e){}
 
 const fmt=(n,d=4)=>(n==null||!isFinite(n))?"–":Number(n).toLocaleString(undefined,{maximumFractionDigits:d});
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const setStatus=(m,e)=>{const s=$("status");s.textContent=m;s.className=e?"err":"";};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const G=(s)=>s.split(",").map(x=>{const i=x.lastIndexOf(" ");return[x.slice(0,i).trim(),parseFloat(x.slice(i+1))];});
 const ETH=G("RTX 3090 120,RTX 3080 95,RTX 3070 61,RTX 3060 Ti 60,RTX 3060 44,RTX 2080 Ti 55,RTX 2070 Super 40,GTX 1660 Super 31,GTX 1070 30,GTX 1060 6GB 22,RX 6900 XT 64,RX 6800 XT 64,RX 6700 XT 47,RX 6600 XT 32,RX 5700 XT 54,RX 580 8GB 30");
 const ALGOS=[
@@ -195,6 +197,16 @@ async function pool(items,n,fn){
   await Promise.all(Array.from({length:Math.min(n,items.length)},async()=>{while(i<items.length){const k=i++;out[k]=await fn(items[k],k);}}));
   return out;
 }
+// fetch that waits and retries when unMineable answers "too many requests" (HTTP 429) or a server error
+async function api(url,opts){
+  let r;
+  for(let i=0;i<4;i++){
+    r=await fetch(url,opts);
+    if(r.status!==429&&r.status<500)return r;
+    await sleep((parseFloat(r.headers.get("retry-after"))||2*(i+1))*1000);
+  }
+  return r;
+}
 function findNum(o,re,path=""){
   if(o==null||typeof o!=="object")return null;
   for(const[k,v]of Object.entries(o))if(re.test(k)&&v!=null&&typeof v!=="object"&&!isNaN(parseFloat(v)))return{v:parseFloat(v),path:path+"/"+k};
@@ -211,7 +223,7 @@ function collectCoins(d){
 
 async function loadCoins(){
   setStatus("Loading coin list…");
-  const r=await fetch(API+"/meta/coin?compact=true");const t=await r.text();let j;
+  const r=await api(API+"/meta/coin?compact=true");const t=await r.text();let j;
   try{j=JSON.parse(t);}catch(e){throw new Error("coin list was not JSON (HTTP "+r.status+")");}
   coins=collectCoins(j.data??j.coins??j);
   if(!coins.length)throw new Error("no coins found in the response");
@@ -219,10 +231,10 @@ async function loadCoins(){
 }
 
 async function simulate(coin,algorithm,hs){
-  const r=await fetch(API+"/simulator",{method:"POST",headers:{"Content-Type":"application/json"},
+  const r=await api(API+"/simulator",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({mode:"advanced",coin,algorithm,hashrate_hs:String(hs),scenario_set:"default",referral_discount:$("refDisc").checked})});
-  const t=await r.text();let j;try{j=JSON.parse(t);}catch(e){return{err:"HTTP "+r.status+": "+t.slice(0,120)};}
-  if(!r.ok||j.error||j.success===false)return{err:(j.error&&(j.error.message||j.error))||j.message||("HTTP "+r.status)};
+  const t=await r.text();let j;try{j=JSON.parse(t);}catch(e){return{err:"HTTP "+r.status,rate:r.status===429};}
+  if(!r.ok||j.error||j.success===false)return{err:(j.error&&(j.error.message||j.error))||j.message||("HTTP "+r.status),rate:r.status===429};
   const ac=j.data?.algorithms?.[0]?.windows?.["1d"]?.scenarios?.spot_now?.auto_convert;
   return{coinsDay:ac?parseFloat(ac.payout_coin):null,usdDay:ac?parseFloat(ac.usdt):null};
 }
@@ -247,19 +259,24 @@ async function loadMinPay(symbols){
   const need=symbols.filter(x=>!(x in minPay));if(!need.length)return;
   const info=Object.fromEntries(coins.map(c=>[c.symbol,c]));
   const pick=j=>{const f=findNum(j?.data??j,THRESH);return f?f.v:null;};
-  // 1) full coin list may carry thresholds for every coin in one request
+  // 1) the full coin list may carry the minimum for every coin in a single request
   try{
-    const j=await(await fetch(API+"/meta/coin")).json();
+    const j=await(await api(API+"/meta/coin")).json();
     const arr=Array.isArray(j.data)?j.data:Object.values(j.data||{}).find(Array.isArray)||[];
     arr.forEach(c=>{const sym=(c.symbol||"").toString().toUpperCase();const v=pick(c);if(sym&&v!=null&&!(sym in minPay))minPay[sym]=v;});
   }catch(e){}
-  // 2) per-coin detail, trying the plain symbol, then the canonical name, then the network
-  const get=async n=>{try{const r=await fetch(API+"/meta/coin/"+encodeURIComponent(n));if(!r.ok)return null;return pick(await r.json());}catch(e){return null;}};
-  await pool(need.filter(x=>minPay[x]==null),8,async sym=>{
-    const c=info[sym]||{};
-    for(const n of [...new Set([sym,c.canon,c.net].filter(Boolean))]){const v=await get(n);if(v!=null){minPay[sym]=v;return;}}
-    minPay[sym]=null;
+  // 2) per-coin detail (plain symbol, then the canonical name when it differs)
+  const get=async n=>{try{const r=await api(API+"/meta/coin/"+encodeURIComponent(n));if(!r.ok)return{fail:true};return{v:pick(await r.json())};}catch(e){return{fail:true};}};
+  await pool(need.filter(x=>minPay[x]==null),5,async sym=>{
+    const c=info[sym]||{};let failed=false;
+    for(const n of [...new Set([sym,c.canon].filter(Boolean))]){
+      const g=await get(n);
+      if(g.fail){failed=true;continue;}
+      if(g.v!=null){minPay[sym]=g.v;return;}
+    }
+    if(!failed)minPay[sym]=null;   // unMineable answered but lists no minimum; if a request failed, try again next time
   });
+  try{localStorage.setItem("umin",JSON.stringify({t:Date.now(),v:minPay}));}catch(e){}
 }
 async function calculate(){
   if(running)return;
@@ -268,22 +285,38 @@ async function calculate(){
   const algorithm=algoValue();
   if(!algorithm)return setStatus("Enter an algorithm.",true);
   running=true;$("go").disabled=true;$("dot").classList.add("on");save();
-  const hs=hr*parseFloat($("unit").value);
+  const hs=Math.round(hr*parseFloat($("unit").value));
+  const key=algorithm+"|"+$("refDisc").checked;
   try{
     if(!coins.length)await loadCoins();
-    if(!results.length)$("rows").innerHTML=Array(6).fill('<tr class="skel">'+'<td></td>'.repeat(8)+'</tr>').join("");
-    let done=0;setStatus(`Checking ${coins.length} payout coins…`);
-    const sims=await pool(coins,8,async c=>{const r=await simulate(c.symbol,algorithm,hs).catch(e=>({err:String(e)}));if(++done%10===0)setStatus(`Checked ${done} of ${coins.length} coins…`);return r;});
-    results=coins.map((c,i)=>({...c,...sims[i]})).filter(r=>!r.err&&r.coinsDay!=null);
-    if(!results.length){$("rows").innerHTML="";$("stats").hidden=true;
-      return setStatus("No payout coin accepted this algorithm. Check the algorithm name.",true);}
+    let sims,note="";
+    const c=simCache;
+    if(c&&c.key===key&&Date.now()-c.time<60000&&hs/c.hs>1e-3&&hs/c.hs<1e3){
+      // earnings scale in direct proportion to hash rate, so reuse the last answer instead of asking unMineable again
+      const k=hs/c.hs;
+      sims=c.sims.map(s=>s.err?s:{coinsDay:s.coinsDay*k,usdDay:s.usdDay*k});
+    }else{
+      if(!results.length)$("rows").innerHTML=Array(6).fill('<tr class="skel">'+'<td></td>'.repeat(8)+'</tr>').join("");
+      let done=0;setStatus(`Checking ${coins.length} payout coins…`);
+      sims=await pool(coins,6,async co=>{const r=await simulate(co.symbol,algorithm,hs).catch(e=>({err:String(e)}));if(++done%10===0)setStatus(`Checked ${done} of ${coins.length} coins…`);return r;});
+      const limited=sims.filter(s=>s.rate).length;
+      if(limited)note=` ${limited} coin(s) were skipped because unMineable is limiting requests; press Calculate again in a minute.`;
+      else simCache={key,hs,time:Date.now(),sims};
+    }
+    const fresh=coins.map((co,i)=>({...co,...sims[i]})).filter(r=>!r.err&&r.coinsDay!=null);
+    if(!fresh.length){
+      if(sims.some(s=>s&&s.rate))return setStatus("unMineable is limiting requests right now. Wait about a minute, then press Calculate again.",true);
+      results=[];$("rows").innerHTML="";$("stats").hidden=true;
+      return setStatus("No payout coin accepted this algorithm. Check the algorithm name.",true);
+    }
+    results=fresh;
     setStatus("Loading minimum cashout amounts…");
     await loadMinPay(results.map(r=>r.symbol));
     render();
-    setStatus(`Updated ${new Date().toLocaleTimeString()} · ${results.length} payout coins`);
+    setStatus(`Updated ${new Date().toLocaleTimeString()} · ${results.length} payout coins.`+note);
   }catch(e){
-    $("rows").innerHTML="";
-    setStatus("Request failed: "+e.message+". Open this file locally and check your connection.",true);
+    if(results.length)render();else $("rows").innerHTML="";
+    setStatus("Request failed: "+e.message+". Check your connection and press Calculate again.",true);
   }finally{running=false;$("go").disabled=false;$("dot").classList.toggle("on",$("auto").checked);}
 }
 
@@ -339,7 +372,7 @@ $("rows").addEventListener("change",e=>{
 });
 let qt;$("q").addEventListener("input",()=>{clearTimeout(qt);qt=setTimeout(()=>results.length&&render(),120);});
 $("hideNoMin").addEventListener("change",()=>results.length&&render());
-$("go").addEventListener("click",calculate);
+$("go").addEventListener("click",()=>calculate());
 ["hr","algo"].forEach(id=>$(id).addEventListener("keydown",e=>{if(e.key==="Enter")calculate();}));
 $("algoSel").addEventListener("change",()=>{const o=$("algoSel").value==="__other";$("algo").hidden=!o;if(o)$("algo").focus();fillGpuUI();});
 $("algo").addEventListener("input",fillGpuUI);
@@ -350,7 +383,7 @@ $("benchGrid").addEventListener("click",e=>{const b=e.target.closest(".gpu");if(
 $("auto").addEventListener("change",()=>{clearInterval(timer);$("dot").classList.toggle("on",$("auto").checked);if($("auto").checked)timer=setInterval(()=>{if(!document.hidden)calculate();},120000);});
 $("rows").innerHTML='<tr><td colspan="8" class="empty">Enter your hash rate and press Calculate.</td></tr>';
 fillGpuUI();
-loadCoins().catch(e=>setStatus("Could not load unMineable: "+e.message+". Open this file locally and check your connection.",true));
+loadCoins().catch(e=>setStatus("Could not load unMineable: "+e.message+". Check your connection and refresh the page.",true));
 </script>
 </body>
 </html>
